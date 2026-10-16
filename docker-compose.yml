@@ -1,0 +1,50 @@
+# Supporting services + control plane for local development.
+# This compose network is NOT evidence of VPN connectivity between physical
+# machines; it only hosts the control plane and its database.
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"   # loopback only
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  control-plane:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm ci --omit=dev && node src/server.js"
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://mongo:27017/nexlink
+      CORS_ORIGINS: http://localhost:3000
+      PORT: "4000"
+    ports:
+      - "4000:4000"   # agents on other machines must reach this
+    volumes:
+      - ./control-plane:/app
+      - /app/node_modules
+    depends_on:
+      mongo:
+        condition: service_healthy
+    profiles: ["full"]
+
+  diagnostic-service:
+    image: python:3.12-slim
+    working_dir: /app
+    command: sh -c "pip install -q -r requirements.txt && uvicorn app.api.main:app --host 0.0.0.0 --port 8090"
+    environment:
+      NEXLINK_DIAG_PROVIDER: mock
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ./diagnostic-service:/app
+    profiles: ["full"]
+
+volumes:
+  mongo-data:

@@ -1,0 +1,53 @@
+# ─── Secrets & local config ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Dev database + generated dev credentials (control-plane/.data/dev-admin.txt)
+control-plane/.data/
+
+# NexLink agent state and WireGuard tunnel files — these contain PRIVATE KEYS
+**/identity.key
+**/wireguard.key
+**/state.json
+nexlink*.conf
+*.wg.conf
+
+# ─── Node / Next.js ────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+coverage/
+
+# ─── Go ────────────────────────────────────────────────────────────────────
+networking-agent/bin/
+networking-agent/nexlink-agent
+networking-agent/nexlink-agent.exe
+*.test
+*.out
+
+# Portable toolchains downloaded for local builds (Go in .tools/go)
+.tools/
+
+# ─── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# ─── Editors, OS, tooling ──────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+# Personal Claude Code settings (launch.json is shared on purpose)
+.claude/

@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+/*
+ * NexLink palette
+ *   ink      #0F0F0F  — background
+ *   lime     #C7FF2E  — electric accent / healthy / primary action
+ *   white    #FFFFFF  — primary text, emphasis
+ *   charcoal #2E2E2E  — raised surfaces, borders
+ *   gray     #808080  — muted text, unknown / configured
+ * Signal (used sparingly, status only): coral #FF5A36 — unreachable / denied.
+ */
+@theme {
+  --color-ink: #0f0f0f;
+  --color-ink-2: #161616;
+  --color-ink-3: #1e1e1e;
+  --color-lime: #c7ff2e;
+  --color-lime-dim: #9fcc25;
+  --color-charcoal: #2e2e2e;
+  --color-mid: #808080;
+  --color-coral: #ff5a36;
+
+  --font-display: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --radius-blob: 28px;
+}
+
+html,
+body {
+  background: var(--color-ink);
+  color: #fff;
+}
+
+body {
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
+}
+
+/* Small uppercase label used across cards ("PURE WHITE" style from the palette). */
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-mid);
+}
+
+.scrollbar-thin {
+  scrollbar-color: var(--color-charcoal) transparent;
+  scrollbar-width: thin;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-charcoal);
+  border-radius: 999px;
+}
+
+/* Diagonal hatch = "configured / intended, not observed". */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.18) 0 6px, transparent 6px 12px);
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(199, 255, 46, 0.55); }
+  100% { box-shadow: 0 0 0 8px rgba(199, 255, 46, 0); }
+}
+.pulse-lime {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+/* React Flow dark skin */
+.react-flow {
+  --xy-background-color: transparent;
+  --xy-node-border-radius: 22px;
+  --xy-controls-button-background-color: #1e1e1e;
+  --xy-controls-button-background-color-hover: #2e2e2e;
+  --xy-controls-button-color: #fff;
+  --xy-controls-button-border-color: #2e2e2e;
+  --xy-minimap-background-color: #161616;
+}
+.react-flow__attribution {
+  background: transparent !important;
+}
+.react-flow__attribution a {
+  color: #808080 !important;
+}
