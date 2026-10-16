@@ -387,5 +387,3 @@ nexlink/
 <div align="center">
 <sub>Built with 🟢 electric lime · #C7FF2E</sub>
 </div>
-#   n e x l i n k k  
- 
