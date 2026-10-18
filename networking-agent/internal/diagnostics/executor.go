@@ -72,6 +72,8 @@ type Executor struct {
 	SendTelemetry func(ctx context.Context) error
 	// OnApplied records the config version that was successfully applied.
 	OnApplied func(version int)
+	// Dial overrides the OS network for probes (lab mode: userspace tunnel).
+	Dial connectivity.DialFunc
 }
 
 func (e *Executor) Execute(ctx context.Context, cmd Command) Result {
@@ -106,7 +108,7 @@ func (e *Executor) Execute(ctx context.Context, cmd Command) Result {
 		if err != nil {
 			return fail(err)
 		}
-		r := connectivity.TCPProbe(ctx, addr, p.Count, 2*time.Second, 250*time.Millisecond)
+		r := connectivity.TCPProbeWith(ctx, e.Dial, addr, p.Count, 2*time.Second, 250*time.Millisecond)
 		res.Measurements = r.Measurements(p.Target, ref)
 		res.Output["target"] = addr
 		res.Output["attempts"] = r.Attempts

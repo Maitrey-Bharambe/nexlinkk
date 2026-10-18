@@ -81,9 +81,10 @@ const telemetrySchema = z
         listenPort: z.number().int().min(1).max(65535).nullable(),
         publicKey: wgKey.nullable(),
         appliedConfigVersion: z.number().int().min(0).nullable(),
-        // wgctrl = read from the kernel/WireGuardNT; unavailable = could not read;
+        // wgctrl = read from the kernel/WireGuardNT; wireguard-go = real WireGuard
+        // in userspace (e.g. `nexlink-agent lab`); unavailable = could not read;
         // simulated = explicit test fixture, never treated as real connectivity.
-        source: z.enum(['wgctrl', 'unavailable', 'simulated']),
+        source: z.enum(['wgctrl', 'wireguard-go', 'unavailable', 'simulated']),
       })
       .strict(),
     peers: z

@@ -26,7 +26,13 @@ const listQuery = z
   .strict();
 const diagBody = z.object({ mode: z.enum(['deterministic', 'diagnostic_service']).default('deterministic') }).strict();
 const testIncidentBody = z
-  .object({ deviceId: objectId, category: z.enum(INCIDENT_CATEGORIES), note: z.string().trim().min(3).max(300) })
+  .object({
+    deviceId: objectId,
+    category: z.enum(INCIDENT_CATEGORIES),
+    note: z.string().trim().min(3).max(300),
+    // Only meaningful for peer_handshake_stale: which peer link the drill is about.
+    peerDeviceId: objectId.optional(),
+  })
   .strict();
 const closeBody = z.object({ note: z.string().trim().min(3).max(500) }).strict();
 
@@ -128,6 +134,13 @@ function incidentsRouter({ config, limits }) {
     validate({ body: testIncidentBody }),
     ah(async (req, res) => {
       const { device } = await loadDeviceInScope(req.user, req.valid.body.deviceId, { write: true });
+      const { peerDeviceId } = req.valid.body;
+      if (peerDeviceId) {
+        const peer = await Device.findById(peerDeviceId).lean();
+        if (!peer || String(peer.networkId) !== String(device.networkId) || String(peer._id) === String(device._id)) {
+          throw conflict('INVALID_PEER', 'peerDeviceId must be another device in the same network');
+        }
+      }
       const now = new Date();
       let incident;
       try {
@@ -138,6 +151,7 @@ function incidentsRouter({ config, limits }) {
           title: `[TEST] ${device.name}: ${req.valid.body.category}`,
           deviceId: device._id,
           networkId: device.networkId,
+          peerDeviceId: peerDeviceId || null,
           detectedAt: now,
           lastObservedAt: now,
           evidence: [{ ref: `test:${now.getTime()}`, kind: 'test_event', summary: `Test event: ${req.valid.body.note}`, observedAt: now }],

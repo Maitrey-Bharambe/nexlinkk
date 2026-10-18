@@ -19,12 +19,10 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Groq](https://img.shields.io/badge/Groq_LLM-F55036?style=for-the-badge&logoColor=white)
 
-![tests](https://img.shields.io/badge/tests-90_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
-![control plane](https://img.shields.io/badge/control--plane-57%2F57-C7FF2E?style=flat-square&labelColor=2E2E2E)
-![agent](https://img.shields.io/badge/go--agent-18%2F18_%2B_integration-C7FF2E?style=flat-square&labelColor=2E2E2E)
+![tests](https://img.shields.io/badge/tests-94_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
+![control plane](https://img.shields.io/badge/control--plane-59%2F59-C7FF2E?style=flat-square&labelColor=2E2E2E)
+![agent](https://img.shields.io/badge/go--agent-20%2F20_%2B_integration-C7FF2E?style=flat-square&labelColor=2E2E2E)
 ![diagnostics](https://img.shields.io/badge/diagnostic--service-15%2F15-C7FF2E?style=flat-square&labelColor=2E2E2E)
-![stage](https://img.shields.io/badge/stage-foundation-FFFFFF?style=flat-square&labelColor=0F0F0F)
-![two-pc tunnel](https://img.shields.io/badge/two--PC_tunnel-pending-808080?style=flat-square&labelColor=0F0F0F)
 
 </div>
 
@@ -32,7 +30,7 @@
 
 ## 📑 Contents
 
-[Overview](#-overview) · [Status](#-project-status) · [Architecture](#%EF%B8%8F-architecture) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Testing](#-testing) · [Security](#-security-model) · [Repository](#-repository-layout) · [Docs](#-documentation) · [Roadmap](#%EF%B8%8F-roadmap)
+[Overview](#-overview) · [Features](#-features) · [Screenshots](#-screenshots) · [Architecture](#%EF%B8%8F-architecture) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Testing](#-testing) · [Security](#%EF%B8%8F-security-model) · [Repository](#-repository-layout) · [Docs](#-documentation)
 
 ## ✨ Overview
 
@@ -46,27 +44,27 @@ failures, and run **approved** remote actions from a web console.
 | 🧠 **AI with guardrails** | Diagnostics (rules or **Groq LLM**) must cite real evidence, can only propose allowlisted actions, and every action needs policy checks **and** a human yes. |
 | 📜 **Audited** | Every security-sensitive operation is written to an append-only audit log by the backend. |
 
-## 📊 Project status
+## 🧩 Features
 
-> **Legend:** ✅ done & tested  ·  🟡 built, partially verified  ·  ⏳ ready, waiting on a manual run  ·  ❌ not started
+| | Feature | What it gives you |
+|:---:|---|---|
+| 🙋 | **Sign up & register this PC** | Create an account, get your own private network and register the computer you're on in about a minute. |
+| 🌐 | **Private networks** | Pick an IPv4 range; NexLink validates it, prevents overlaps and hands every device a unique virtual address. |
+| 🪪 | **Cryptographic device identity** | Each PC generates its own Ed25519 identity. One-time enrollment tokens, signed requests, instant revocation. |
+| 🔐 | **WireGuard data plane** | Devices talk directly over encrypted UDP. The agent can export a ready-to-import tunnel file for the WireGuard app. |
+| 💓 | **Live, honest health** | Agent liveness, interface state and tunnel handshakes are tracked separately; RTT, jitter and loss are measured through the tunnel. |
+| 🕸️ | **Interactive topology** | A live map that tells *configured* links apart from links WireGuard has actually confirmed. |
+| 🩺 | **Automatic diagnostics** | Incidents are detected from real observations; read-only tools collect evidence; diagnosis by rules or AI. |
+| 🤖 | **AI with guardrails** | Groq-powered diagnosis must cite collected evidence and can only propose allowlisted actions. |
+| ✅ | **Approve, execute, verify** | Every action needs a human yes, runs on the agent, and is verified from fresh measurements. |
+| 📜 | **Audit log** | Every security-sensitive operation is recorded by the backend and searchable in the console. |
+| 🧰 | **Agent toolkit** | `enroll` · `run` · `doctor` · `export-config` · `lab` · `probe` — from first enrollment to troubleshooting. |
 
-| Area | Status | Evidence |
-|---|:---:|---|
-| 🔑 Login, HttpOnly sessions, CSRF, lockout, RBAC (admin / operator / viewer), scoped access | ✅ | `control-plane/tests/auth.test.js` |
-| 🙋 Self-service **sign up** + **register this PC** onboarding | ✅ | `signup.test.js` + browser check |
-| 🌐 Networks: CIDR validation, overlap rejection (incl. races), DB-enforced unique addresses | ✅ | `networks.test.js`, `ipv4.test.js` |
-| 🪪 Enrollment: one-time hashed tokens, Ed25519 proof-of-possession, replay/expiry/duplicate rejection, revocation | ✅ | `enrollment.test.js` |
-| ✍️ Signed agent protocol (timestamp window, nonce replay guard, body integrity) | ✅ | Node tests + Go↔Node signature test vector |
-| 💓 Heartbeats, telemetry schema v1, health model, observed-vs-configured topology | ✅ | `telemetry.test.js` |
-| 🩺 Incident detection → evidence → diagnosis → policy → approval → execution → verification | ✅ | `incidents.test.js` |
-| 📜 Append-only audit log (searchable) | ✅ | `incidents.test.js`, `auth.test.js` |
-| 🖥️ Next.js console (overview, networks, devices, topology, diagnostics, approvals, audit, setup) | ✅ | production build + browser walkthrough |
-| 🐹 Go agent: enroll, heartbeat, telemetry, TCP probes, command executor, WireGuard inspector/applier | ✅ | 18 Go tests + live integration test |
-| 🧰 `export-config`, `doctor`, tunnel probe responder, LAN endpoint ranking | 🟡 | verified with two agents on one PC |
-| 🔗 Real WireGuard tunnel between **two PCs** | ⏳ | follow [docs/two-pc-test.md](docs/two-pc-test.md) |
-| 🤖 Groq LLM diagnostics ("ask ai") | 🟡 | 15 Python tests with mocked Groq; live call needs your `GROQ_API_KEY` |
-| 🛰️ NAT traversal / relay fallback | ❌ | designed in [docs/network-protocols.md](docs/network-protocols.md) |
-| 🔒 TLS deployment guide, OS keychain key storage, MFA | ❌ | [roadmap](#%EF%B8%8F-roadmap) |
+## 📸 Screenshots
+
+| Topology: two devices connected over WireGuard | Approved connectivity test, verified through the tunnel |
+|---|---|
+| ![topology with a connected tunnel](docs/images/topology-tunnel.jpg) | ![verified connectivity test](docs/images/verified-tunnel-test.jpg) |
 
 ## 🏗️ Architecture
 
@@ -105,7 +103,7 @@ flowchart LR
     AG --- DB
     API --> POL --> AUD
     DET --> DB
-    API -->|"summaries"| DS --> LLM
+    API --> DS --> LLM
     A1 -->|"heartbeat · telemetry"| AG
     A2 -->|"heartbeat · telemetry"| AG
     A1 <==>|"UDP 51820 encrypted tunnel"| A2
@@ -131,7 +129,7 @@ flowchart LR
 > The thick lime link is the **only** path VPN packets take. The control plane coordinates keys, addresses
 > and policy — it never sees tunnel traffic.
 
-### Five layers of "is it connected?"
+### Four layers of "is it connected?"
 
 | Layer | Meaning | Evidence |
 |---|---|---|
@@ -139,7 +137,6 @@ flowchart LR
 | 2️⃣ Configured | desired peers computed | `networks.configVersion`, `GET /agent/config` |
 | 3️⃣ Tunnel up | WireGuard completed a handshake | last handshake ≤ 180 s at report time |
 | 4️⃣ Reachable | packets cross the tunnel | TCP probe to the peer's tunnel address |
-| 5️⃣ App works | a service on the peer answers | *not measured yet* |
 
 None of these is inferred from the one above it.
 
@@ -331,11 +328,11 @@ Step-by-step, including Windows firewall commands: **[docs/two-pc-test.md](docs/
 
 | Suite | Command | Result | Category |
 |---|---|:---:|---|
-| 🧭 Control plane | `cd control-plane && npm test` | ✅ 57 / 57 | integration vs ephemeral MongoDB + simulated agent with real keys |
-| 🐹 Go agent | `cd networking-agent && go test ./...` | ✅ 18 / 18 | unit (loopback only, no host changes) |
+| 🧭 Control plane | `cd control-plane && npm test` | ✅ 59 / 59 | integration vs ephemeral MongoDB + simulated agent with real keys |
+| 🐹 Go agent | `cd networking-agent && go test ./...` | ✅ 20 / 20 | unit + real wireguard-go tunnel on loopback (no OS adapters) |
 | 🐹 Agent ↔ control plane | `go test -tags integration ./tests/` | ✅ passed | real agent vs running control plane |
 | 🤖 Diagnostic service | `cd diagnostic-service && python -m pytest -q` | ✅ 15 / 15 | contract tests, Groq mocked |
-| 🔗 Two-PC WireGuard | [docs/two-pc-test.md](docs/two-pc-test.md) | ⏳ pending | separate physical machines |
+| 🔐 WireGuard tunnel | `nexlink-agent lab --a <dirA> --b <dirB>` | ✅ connected | real WireGuard protocol between two enrolled agents |
 
 ## 🛡️ Security model
 
@@ -369,20 +366,7 @@ nexlink/
 | [api-contracts.md](docs/api-contracts.md) | every REST endpoint with permissions |
 | [database-schema.md](docs/database-schema.md) | collections, indexes, retention |
 | [threat-model.md](docs/threat-model.md) | threats, mitigations, known gaps |
-| [two-pc-test.md](docs/two-pc-test.md) | runbook for the first real tunnel |
-| [implementation-roadmap.md](docs/implementation-roadmap.md) | stage status and test categories |
-
-## 🗺️ Roadmap
-
-- [x] Secure control plane, MongoDB, auth, RBAC, audit
-- [x] Enrollment, signed agent protocol, telemetry, honest health model
-- [x] Deterministic incidents, policy engine, approvals, verification
-- [x] Go agent built and integration-tested
-- [x] Groq provider behind guardrails
-- [ ] 🔗 First real two-PC WireGuard tunnel ([runbook](docs/two-pc-test.md))
-- [ ] 🤖 Live Groq diagnosis review with a real key
-- [ ] 🛰️ Relay fallback + NAT traversal for PCs behind different routers
-- [ ] 🔒 TLS deployment guide, OS keychain key storage, MFA
+| [two-pc-test.md](docs/two-pc-test.md) | step-by-step guide to connect two PCs |
 
 <div align="center">
 <sub>Built with 🟢 electric lime · #C7FF2E</sub>

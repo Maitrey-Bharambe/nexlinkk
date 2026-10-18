@@ -43,9 +43,17 @@ func isRefused(err error) bool {
 	return false
 }
 
+// DialFunc opens a TCP connection; lets probes run over a userspace network stack.
+type DialFunc func(ctx context.Context, addr string) (net.Conn, error)
+
 // TCPProbe dials addr count times. Count, timeout and gap are clamped so a
 // probe can never become a flood.
 func TCPProbe(ctx context.Context, addr string, count int, timeout, gap time.Duration) Result {
+	return TCPProbeWith(ctx, nil, addr, count, timeout, gap)
+}
+
+// TCPProbeWith is TCPProbe with a custom dialer (nil = OS network stack).
+func TCPProbeWith(ctx context.Context, dial DialFunc, addr string, count int, timeout, gap time.Duration) Result {
 	if count < 1 {
 		count = 1
 	}
@@ -64,9 +72,17 @@ func TCPProbe(ctx context.Context, addr string, count int, timeout, gap time.Dur
 			break
 		}
 		r.Attempts++
-		d := net.Dialer{Timeout: timeout}
 		start := time.Now()
-		conn, err := d.DialContext(ctx, "tcp", addr)
+		var conn net.Conn
+		var err error
+		if dial != nil {
+			dctx, cancel := context.WithTimeout(ctx, timeout)
+			conn, err = dial(dctx, addr)
+			cancel()
+		} else {
+			d := net.Dialer{Timeout: timeout}
+			conn, err = d.DialContext(ctx, "tcp", addr)
+		}
 		rtt := time.Since(start)
 		switch {
 		case err == nil:

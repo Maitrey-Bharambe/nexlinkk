@@ -6,6 +6,7 @@ const { Heartbeat, Measurement, PeerObservation } = require('../../database/mode
 const { conflict, badRequest } = require('../../utils/errors');
 
 const days = (n) => n * 86400_000;
+const REAL_WG_SOURCES = new Set(['wgctrl', 'wireguard-go']);
 
 function assertSameDevice(device, bodyDeviceId) {
   // The authenticated identity wins. A body naming another device is rejected,
@@ -136,17 +137,20 @@ async function recordTelemetry(device, t, { config, sourceAddress }) {
     },
   );
 
-  // Peer observations: only real WireGuard reads are stored as observed state.
+  // Peer observations: only real WireGuard reads (kernel/WireGuardNT or
+  // wireguard-go) are stored as observed state — never simulated data.
   const { byKey } = await peerResolver(networkId, device._id);
   const unknownPeers = [];
   const derived = [];
-  if (iface.source === 'wgctrl' && networkId) {
+  if (REAL_WG_SOURCES.has(iface.source) && networkId) {
+    const reported = [];
     for (const p of t.peers) {
       const peerDeviceId = byKey.get(p.publicKey);
       if (!peerDeviceId) {
         unknownPeers.push(p.publicKey);
         continue;
       }
+      reported.push(peerDeviceId);
       const lastHandshakeAt = p.lastHandshakeAt ? new Date(p.lastHandshakeAt) : null;
       await PeerObservation.updateOne(
         { deviceId: device._id, peerDeviceId },
@@ -178,6 +182,9 @@ async function recordTelemetry(device, t, { config, sourceAddress }) {
         measuredAt: t.measuredAt,
       });
     }
+    // A peer missing from a real WireGuard report is no longer on the
+    // interface: drop the stale observation so the link reverts to "configured".
+    await PeerObservation.deleteMany({ deviceId: device._id, peerDeviceId: { $nin: reported } });
   }
 
   const stored = await ingestMeasurements(device, [...t.measurements, ...derived], { networkId, config });

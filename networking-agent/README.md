@@ -4,9 +4,9 @@ Runs on each managed computer. Enrolls with a one-time token, reports heartbeats
 signed HTTPS protocol, executes **approved, allowlisted** commands, and (only in privileged mode) applies
 WireGuard peer configuration through `wgctrl`.
 
-> Status: builds with Go 1.27, `go vet` clean, unit tests pass, and the integration test passes against a
-> live control plane (enroll → token replay rejected → telemetry → run loop). Not yet tested: a real
-> WireGuard interface (privileged `apply`) and two separate machines.
+> Status: builds with Go 1.27, `go vet` clean, 20 unit tests pass, the integration test passes against a
+> live control plane, and a **real WireGuard tunnel** between two agents is verified with `lab`
+> (wireguard-go). Not yet run: kernel/WireGuardNT interface and two separate machines.
 
 ## Build & test
 
@@ -26,6 +26,7 @@ nexlink-agent status                                    # local inspection, no n
 nexlink-agent probe --target 10.42.0.3:22 --count 5     # bounded TCP probe
 nexlink-agent doctor                                    # read-only preflight: control plane, WireGuard, handshakes, tunnel probe
 nexlink-agent export-config                             # write nexlink0.conf for the WireGuard app / wg-quick (contains private key)
+nexlink-agent lab --a DIR_A --b DIR_B                   # real WireGuard tunnel (wireguard-go) between two enrolled agents on one host
 NEXLINK_ENABLE_PRIVILEGED=true nexlink-agent apply --dry-run   # show desired WireGuard peers
 NEXLINK_ENABLE_PRIVILEGED=true nexlink-agent apply             # explicitly apply + verify
 ```

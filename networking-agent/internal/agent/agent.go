@@ -37,12 +37,17 @@ type Agent struct {
 	appliedVer *int
 
 	responder net.Listener
+
+	// Hooks used by `nexlink-agent lab` (nil/false in normal operation).
+	ExtraMeasurements  func(ctx context.Context) []telemetry.Measurement
+	CandidatesOverride func() []string
+	DisableResponder   bool
 }
 
 // ensureResponder starts the tunnel-address probe responder once the tunnel
 // interface (and therefore its address) exists. Retried on every heartbeat.
 func (a *Agent) ensureResponder() {
-	if a.responder != nil || a.id.State.Address == "" {
+	if a.DisableResponder || a.responder != nil || a.id.State.Address == "" {
 		return
 	}
 	ln, err := connectivity.StartResponder(a.id.State.Address, a.cfg.ProbePort)
@@ -85,7 +90,7 @@ func (a *Agent) Executor() *diagnostics.Executor { return a.executor }
 
 func (a *Agent) capabilities(src string) []string {
 	caps := []string{"telemetry", "connectivity_probe"}
-	if src == wireguard.SourceWgctrl {
+	if src == wireguard.SourceWgctrl || src == wireguard.SourceUserspace {
 		caps = append(caps, "wireguard_inspect")
 	}
 	if a.cfg.Privileged {
@@ -157,6 +162,12 @@ func (a *Agent) SendTelemetry(ctx context.Context) error {
 		Peers:              peers,
 		EndpointCandidates: platform.EndpointCandidates(listenPortOr(st.ListenPort, a.cfg.ListenPort), a.cfg.Interface),
 		Measurements:       measurements,
+	}
+	if a.CandidatesOverride != nil {
+		report.EndpointCandidates = a.CandidatesOverride()
+	}
+	if a.ExtraMeasurements != nil {
+		report.Measurements = append(report.Measurements, a.ExtraMeasurements(ctx)...)
 	}
 	return a.client.Do(ctx, "POST", "/api/v1/agent/telemetry", report, nil)
 }

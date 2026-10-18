@@ -133,6 +133,32 @@ test('peer link is "configured" until handshake evidence, then "connected"', asy
   assert.ok(await Measurement.exists({ deviceId: a.deviceId, type: 'handshake_age', valid: true }));
 });
 
+test('wireguard-go (userspace) peer reports count as real observations; simulated ones do not', async () => {
+  const [a, b] = net.agents;
+  await a.heartbeat();
+  await b.heartbeat();
+  const recent = new Date(Date.now() - 5_000).toISOString();
+  const peer = (x) => ({ publicKey: x.wireguardPublicKey, endpoint: '127.0.0.1:51831', lastHandshakeAt: recent, rxBytes: 10, txBytes: 10, allowedIPs: [`${x.address}/32`] });
+  assert.equal((await a.telemetry({ source: 'wireguard-go', peers: [peer(b)] })).status, 200);
+  assert.equal((await b.telemetry({ source: 'wireguard-go', peers: [peer(a)] })).status, 200);
+  const edge = (await op.get(`/api/v1/topology?networkId=${net.networkId}`)).body.data.edges.find((e) => e.kind === 'peer');
+  assert.equal(edge.state, 'connected');
+  const d = await deviceView(a.deviceId);
+  assert.equal(d.vpn.source, 'wireguard-go');
+  assert.equal(d.health.status, 'healthy');
+});
+
+test('a peer dropped from the interface reverts its link to "configured"', async () => {
+  const [a, b] = net.agents;
+  await a.heartbeat();
+  await b.heartbeat();
+  // Both sides stop reporting each other (e.g. tunnel removed).
+  assert.equal((await a.telemetry({ peers: [] })).status, 200);
+  assert.equal((await b.telemetry({ peers: [] })).status, 200);
+  const edge = (await op.get(`/api/v1/topology?networkId=${net.networkId}`)).body.data.edges.find((e) => e.kind === 'peer');
+  assert.equal(edge.state, 'configured');
+});
+
 test('agent health thresholds from heartbeat freshness (unit)', () => {
   const config = loadConfig({ HEARTBEAT_INTERVAL_SECONDS: '30', HANDSHAKE_FRESH_SECONDS: '180' });
   const now = Date.now();

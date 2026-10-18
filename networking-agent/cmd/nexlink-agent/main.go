@@ -7,6 +7,7 @@
 //	nexlink-agent apply                                # explicit WireGuard apply (privileged mode only)
 //	nexlink-agent export-config                        # write a tunnel file for the WireGuard app
 //	nexlink-agent doctor                               # preflight checklist for a real tunnel test
+//	nexlink-agent lab --a DIR --b DIR                  # real WireGuard tunnel between two agents on one host
 package main
 
 import (
@@ -57,6 +58,8 @@ func main() {
 		err = cmdExportConfig(ctx, os.Args[2:])
 	case "doctor":
 		err = cmdDoctor(ctx, os.Args[2:])
+	case "lab":
+		err = cmdLab(ctx, os.Args[2:])
 	case "version":
 		fmt.Println(config.Version)
 	default:
@@ -70,7 +73,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|status|doctor|export-config|probe|apply|version> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|status|doctor|export-config|lab|probe|apply|version> [flags]")
 }
 
 // commonFlags returns a pointer: flags are parsed into this same struct later.

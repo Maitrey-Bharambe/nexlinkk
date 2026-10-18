@@ -118,6 +118,23 @@ handshake and the TCP probe are the evidence NexLink uses.
 | `peer …: no handshake yet` | UDP 51820 firewall rule on **both** PCs; the other PC's tunnel is Activated; its endpoint is a 192.168.x.x address (re-export after both agents ran). Some routers isolate Wi-Fi clients ("AP/client isolation") — then use Ethernet or another network. |
 | `no answer on …:7946` (handshake ok) | The other PC's agent isn't running, or its TCP 7946 rule is missing. The tunnel itself is fine. |
 
+## Rehearse on one PC first (no admin, no WireGuard app)
+
+`nexlink-agent lab` runs a real WireGuard tunnel between two enrolled agents on one machine using
+wireguard-go (userspace) devices — no network adapter, route or DNS change:
+
+```powershell
+# register two devices in the console (register a pc → "lab-a", "lab-b"), then:
+.
+exlink-agent.exe enroll --server http://localhost:4000 --state-dir .lab-a   # paste token 1
+.
+exlink-agent.exe enroll --server http://localhost:4000 --state-dir .lab-b   # paste token 2
+.
+exlink-agent.exe lab --server http://localhost:4000 --a .lab-a --b .lab-b --duration 5m
+```
+Topology shows *lab-a ⇄ lab-b connected · direct*. Windows may ask about firewall access for the UDP
+ports; loopback works either way.
+
 ## Cleanup
 
 WireGuard app → Deactivate / Remove `nexlink0`; **(Admin)** `Remove-NetFirewallRule -DisplayName "NexLink*"`.
