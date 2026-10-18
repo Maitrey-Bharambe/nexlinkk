@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { post, setCsrfToken } from '@/lib/api';
@@ -66,7 +67,7 @@ export default function LoginPage() {
       <div className="flex items-center justify-center rounded-blob border border-charcoal bg-ink-2 p-8">
         <form onSubmit={submit} className="w-full max-w-sm space-y-5">
           <div className="mb-6">
-            <span className="mb-6 grid h-12 w-12 place-items-center rounded-2xl bg-lime text-2xl font-black text-ink">N</span>
+            <Image src="/logo-full.png" alt="NexLink — secure networks, intelligent operations" width={900} height={717} priority className="mb-6 h-auto w-52" />
             <div className="mb-6 inline-flex rounded-full border border-charcoal p-1" role="tablist">
               {[
                 ['signin', 'sign in'],

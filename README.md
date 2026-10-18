@@ -1,6 +1,9 @@
 <div align="center">
 
-# 🟢 NexLink
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.png" />
+  <img src="docs/images/logo-on-dark.png" alt="NexLink — secure networks, intelligent operations" width="340" />
+</picture>
 
 **Private networking · evidence-based diagnostics · policy-gated remote ops**
 

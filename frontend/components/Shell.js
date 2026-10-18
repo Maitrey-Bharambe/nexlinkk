@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Activity, CheckSquare, Cpu, LogOut, Network, Plus, ScrollText, Share2, Stethoscope } from 'lucide-react';
@@ -26,7 +27,8 @@ export default function Shell({ children }) {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2">
+        <Image src="/logo-mark.png" alt="NexLink" width={72} height={72} priority className="h-[72px] w-[72px] animate-pulse" />
         <Loading label="checking session" />
       </div>
     );
@@ -38,7 +40,7 @@ export default function Shell({ children }) {
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-charcoal/70 p-4 md:flex">
         <Link href="/" className="mb-8 flex items-center gap-2 px-3 pt-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-lime text-lg font-black text-ink">N</span>
+          <Image src="/logo-mark.png" alt="NexLink" width={40} height={40} priority className="h-10 w-10" />
           <span className="text-xl font-bold tracking-tight">nexlink</span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
