@@ -25,12 +25,16 @@ connectivity never depends on this service.
 
 ## Using Groq
 
-```powershell
-$env:NEXLINK_DIAG_PROVIDER = "groq"
-$env:GROQ_API_KEY = "<your key from console.groq.com>"   # never commit it
-# optional: $env:GROQ_MODEL = "llama-3.3-70b-versatile"
-.venv\Scripts\python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8090
-```
+1. Get a key at https://console.groq.com/keys.
+2. Copy `.env.example` to `.env` in this folder and set:
+   ```ini
+   NEXLINK_DIAG_PROVIDER=groq
+   GROQ_API_KEY=gsk_...
+   # GROQ_MODEL=openai/gpt-oss-120b   (optional; default)
+   ```
+   `.env` is git-ignored — never commit the key. Variables set in the shell override the file.
+3. Start the service: `.venv\Scripts\python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8090`
+   (check http://127.0.0.1:8090/healthz shows the groq provider).
 
 Then set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `control-plane/.env` and use **ask ai** on an
 incident. Only evidence refs, kinds, summaries and timestamps are sent to Groq — never raw evidence data

@@ -6,7 +6,11 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from app.planners.planner import diagnose
+from app.envfile import load_env_file
+
+load_env_file()  # diagnostic-service/.env (NEXLINK_DIAG_PROVIDER, GROQ_API_KEY, …)
+
+from app.planners.planner import diagnose  # noqa: E402
 from app.providers.base import ProviderNotConfigured, get_provider
 from app.providers.groq import ProviderError
 from app.schemas.diagnostic import DiagnoseRequest

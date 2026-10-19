@@ -14,7 +14,12 @@ const CATEGORIES = ['agent_offline', 'vpn_interface_down', 'peer_handshake_stale
 
 function TestIncidentDialog({ open, onClose, onCreated }) {
   const { data: devices } = useApi(open ? '/devices' : null);
-  const [form, setForm] = useState({ deviceId: '', category: 'vpn_interface_down', note: '' });
+  const [form, setForm] = useState({ deviceId: '', category: 'vpn_interface_down', note: '', peerDeviceId: '' });
+  const enrolled = devices?.filter((d) => d.enrollmentState === 'enrolled') || [];
+  const selected = enrolled.find((d) => d.id === form.deviceId);
+  // Peer drills need the other end of the link: same network, not the device itself.
+  const peers = selected ? enrolled.filter((d) => d.networkId === selected.networkId && d.id !== selected.id) : [];
+  const needsPeer = form.category === 'peer_handshake_stale';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   async function submit(e) {
@@ -22,7 +27,8 @@ function TestIncidentDialog({ open, onClose, onCreated }) {
     setBusy(true);
     setError(null);
     try {
-      await post('/incidents/test', form);
+      const { peerDeviceId, ...rest } = form;
+      await post('/incidents/test', needsPeer && peerDeviceId ? { ...rest, peerDeviceId } : rest);
       onCreated();
       onClose();
     } catch (err) {
@@ -36,9 +42,9 @@ function TestIncidentDialog({ open, onClose, onCreated }) {
       <form onSubmit={submit} className="space-y-4">
         <p className="text-sm text-mid">creates an incident labelled <b className="text-white">[TEST]</b> to exercise diagnostics and approvals. it is never auto-resolved and never presented as a real observation.</p>
         <Field label="device">
-          <select className={inputCls} required value={form.deviceId} onChange={(e) => setForm({ ...form, deviceId: e.target.value })}>
+          <select className={inputCls} required value={form.deviceId} onChange={(e) => setForm({ ...form, deviceId: e.target.value, peerDeviceId: '' })}>
             <option value="">choose…</option>
-            {devices?.filter((d) => d.enrollmentState === 'enrolled').map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {enrolled.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </Field>
         <Field label="category">
@@ -46,6 +52,14 @@ function TestIncidentDialog({ open, onClose, onCreated }) {
             {CATEGORIES.map((c) => <option key={c} value={c}>{humanize(c)}</option>)}
           </select>
         </Field>
+        {needsPeer && (
+          <Field label="peer device" hint="the other end of the tunnel; lets diagnostics propose a connectivity test through it">
+            <select className={inputCls} value={form.peerDeviceId} onChange={(e) => setForm({ ...form, peerDeviceId: e.target.value })} disabled={!selected}>
+              <option value="">{selected ? 'choose…' : 'pick a device first'}</option>
+              {peers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="note">
           <input className={inputCls} required minLength={3} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="drill: approval flow" />
         </Field>

@@ -51,3 +51,6 @@ desktop.ini
 *.log
 # Personal Claude Code settings (launch.json is shared on purpose)
 .claude/
+
+# Office lock/temp files (created while a document is open)
+~$*

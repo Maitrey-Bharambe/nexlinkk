@@ -108,7 +108,13 @@ func (e *Executor) Execute(ctx context.Context, cmd Command) Result {
 		if err != nil {
 			return fail(err)
 		}
-		r := connectivity.TCPProbeWith(ctx, e.Dial, addr, p.Count, 2*time.Second, 250*time.Millisecond)
+		// The dial hook reaches peers inside a userspace tunnel (lab mode); the
+		// control plane is always reached over the host network.
+		dial := e.Dial
+		if p.Target == "control_plane" {
+			dial = nil
+		}
+		r := connectivity.TCPProbeWith(ctx, dial, addr, p.Count, 2*time.Second, 250*time.Millisecond)
 		res.Measurements = r.Measurements(p.Target, ref)
 		res.Output["target"] = addr
 		res.Output["attempts"] = r.Attempts

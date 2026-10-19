@@ -2,7 +2,7 @@
 
 Configuration (environment only — the key is never logged or returned):
   GROQ_API_KEY    required
-  GROQ_MODEL      default "llama-3.3-70b-versatile"
+  GROQ_MODEL      default "openai/gpt-oss-120b"
   GROQ_BASE_URL   default "https://api.groq.com/openai/v1"
 
 Privacy: only evidence ref/kind/summary/timestamp are sent, never the raw
@@ -45,6 +45,9 @@ Rules:
 """
 
 
+DEFAULT_MODEL = "openai/gpt-oss-120b"
+
+
 class ProviderError(RuntimeError):
     """Upstream failure. Messages never include the API key."""
 
@@ -68,16 +71,20 @@ class GroqProvider:
             ],
             "allowed_actions": [a.model_dump() for a in request.allowed_actions],
         }
-        return {
+        payload = {
             "model": self.model,
             "temperature": 0.1,
-            "max_tokens": 1500,
+            # Reasoning models spend tokens thinking before the JSON answer.
+            "max_tokens": 4000,
             "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(user)},
             ],
         }
+        if self.model.startswith("openai/gpt-oss"):
+            payload["reasoning_effort"] = "low"  # keep diagnoses fast
+        return payload
 
     def plan(self, request: DiagnoseRequest) -> dict[str, Any]:
         try:
@@ -112,6 +119,6 @@ def from_env() -> GroqProvider | None:
         return None
     return GroqProvider(
         api_key=key,
-        model=os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        model=os.environ.get("GROQ_MODEL", DEFAULT_MODEL),
         base_url=os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
     )
