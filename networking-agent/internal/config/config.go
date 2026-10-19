@@ -13,7 +13,7 @@ import (
 )
 
 // Version is the agent version reported to the control plane.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 type Config struct {
 	ServerURL         string
@@ -31,6 +31,10 @@ type Config struct {
 	// WireGuard UDP listen port. Advertised to peers as part of endpoint
 	// candidates even before the tunnel exists, and written by export-config.
 	ListenPort int
+	// Userspace runs the tunnel inside the agent (wireguard-go): no WireGuard
+	// app and no Administrator rights needed. NexLink traffic (handshakes,
+	// probes, approved tests) uses the tunnel; other apps do not.
+	Userspace bool
 }
 
 func env(key, def string) string {
@@ -67,6 +71,7 @@ func FromEnv() Config {
 		AllowHTTP:         env("NEXLINK_ALLOW_HTTP", "false") == "true",
 		ProbePort:         envInt("NEXLINK_PROBE_TCP_PORT", 7946),
 		ListenPort:        envInt("NEXLINK_LISTEN_PORT", 51820),
+		Userspace:         env("NEXLINK_USERSPACE", "false") == "true",
 	}
 }
 

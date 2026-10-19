@@ -47,7 +47,7 @@ function createApp({ config, logger }) {
   app.use(helmet());
   app.use(
     cors({
-      origin: (origin, cb) => cb(null, !origin || config.corsOrigins.includes(origin)),
+      origin: (origin, cb) => cb(null, config.isAllowedOrigin(origin)),
       credentials: true,
       methods: ['GET', 'POST', 'DELETE'],
       allowedHeaders: ['content-type', 'x-csrf-token'],

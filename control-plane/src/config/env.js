@@ -11,6 +11,9 @@ const schema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   MONGODB_URI: z.string().min(1).default('mongodb://127.0.0.1:27017/nexlink'),
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
+  // Also accept the console when opened from a private-LAN address
+  // (e.g. http://192.168.0.105:3000 on a second PC). Lab/home networks only.
+  CORS_ALLOW_PRIVATE_LAN: bool.default('false'),
   COOKIE_SECURE: bool.optional(),
   TRUST_PROXY: bool.default('false'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -49,6 +52,17 @@ function loadConfig(overrides = {}) {
     ...c,
     isProduction: c.NODE_ENV === 'production',
     corsOrigins: c.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+    isAllowedOrigin: (origin) => {
+      const list = c.CORS_ORIGINS.split(',').map((s) => s.trim());
+      if (!origin || list.includes(origin)) return true;
+      if (!c.CORS_ALLOW_PRIVATE_LAN) return false;
+      try {
+        const u = new URL(origin);
+        return u.protocol === 'http:' && /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(u.hostname);
+      } catch {
+        return false;
+      }
+    },
     cookieSecure: c.COOKIE_SECURE ?? c.NODE_ENV === 'production',
   };
 }

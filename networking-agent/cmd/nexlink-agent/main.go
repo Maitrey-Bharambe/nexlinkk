@@ -8,6 +8,7 @@
 //	nexlink-agent export-config                        # write a tunnel file for the WireGuard app
 //	nexlink-agent doctor                               # preflight checklist for a real tunnel test
 //	nexlink-agent lab --a DIR --b DIR                  # real WireGuard tunnel between two agents on one host
+//	nexlink-agent install / uninstall / service-status  # run as a background Windows service (Administrator)
 package main
 
 import (
@@ -34,6 +35,13 @@ import (
 )
 
 func main() {
+	// Started by the Windows Service Control Manager: no console, no flags parsing here.
+	if isWindowsService() {
+		if err := runService(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
@@ -60,6 +68,14 @@ func main() {
 		err = cmdDoctor(ctx, os.Args[2:])
 	case "lab":
 		err = cmdLab(ctx, os.Args[2:])
+	case "install":
+		err = cmdInstall(os.Args[2:])
+	case "uninstall":
+		err = cmdUninstall()
+	case "service-status":
+		err = cmdServiceStatus()
+	case "service":
+		err = runService(os.Args[2:]) // "--debug" runs the service handler in this console
 	case "version":
 		fmt.Println(config.Version)
 	default:
@@ -73,7 +89,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|status|doctor|export-config|lab|probe|apply|version> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|status|doctor|export-config|lab|probe|apply|install|uninstall|service-status|version> [flags]")
 }
 
 // commonFlags returns a pointer: flags are parsed into this same struct later.
@@ -84,6 +100,10 @@ func commonFlags(name string, args []string) (*config.Config, *flag.FlagSet) {
 	fs.StringVar(&cfg.ServerURL, "server", cfg.ServerURL, "control plane URL")
 	fs.StringVar(&cfg.StateDir, "state-dir", cfg.StateDir, "directory for keys and enrollment state")
 	fs.StringVar(&cfg.Interface, "interface", cfg.Interface, "WireGuard interface name")
+	fs.BoolVar(&cfg.AllowHTTP, "allow-http", cfg.AllowHTTP, "allow plain http to a non-loopback server (lab LAN only)")
+	fs.BoolVar(&cfg.Privileged, "enable-privileged", cfg.Privileged, "allow approved commands to change the WireGuard interface")
+	fs.BoolVar(&cfg.Userspace, "userspace", cfg.Userspace, "run the tunnel inside the agent (no WireGuard app or Administrator needed)")
+	fs.IntVar(&cfg.ListenPort, "listen-port", cfg.ListenPort, "WireGuard UDP listen port")
 	return cfg, fs
 }
 
@@ -134,12 +154,23 @@ func cmdEnroll(ctx context.Context, args []string) error {
 	return nil
 }
 
-func cmdRun(ctx context.Context, args []string, log *slog.Logger) error {
+func cmdRun(ctx context.Context, args []string, _ *slog.Logger) error {
 	cfg, fs := commonFlags("run", args)
 	_ = fs.Parse(args)
+	return runAgent(ctx, cfg, slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+}
+
+// runAgent is shared by `run` and the Windows service. Its log lines go to
+// out and are also streamed to the console's "agent console" panel.
+func runAgent(ctx context.Context, cfg *config.Config, out slog.Handler) error {
 	id, err := loadEnrolled(cfg)
 	if err != nil {
 		return err
+	}
+	events := agent.NewEventBuffer(500)
+	log := agent.NewEventLogger(out, events)
+	if cfg.Userspace {
+		return runUserspace(ctx, cfg, id, log, events)
 	}
 	if cfg.Privileged {
 		log.Warn("PRIVILEGED MODE ENABLED: approved refresh_vpn_config commands will modify WireGuard interface " + cfg.Interface)
@@ -147,6 +178,7 @@ func cmdRun(ctx context.Context, args []string, log *slog.Logger) error {
 		log.Info("safe mode: read-only inspection; no host network changes will be made")
 	}
 	a := agent.New(*cfg, id, wireguard.NewInspector(), wireguard.NewApplier(cfg.Privileged, id.WireGuardPrivateKey()), log)
+	a.Events = events
 	return a.Run(ctx)
 }
 

@@ -28,6 +28,9 @@ Agent API: Ed25519 request signatures (see network-protocols.md); cookies are ig
 | GET `/devices/:id/measurements?type=&limit=` | `telemetry:read` | |
 | POST `/devices/:id/revoke` | `devices:revoke` | `{reason}` |
 | DELETE `/devices/:id/membership` | `devices:membership` | releases the address |
+| GET `/devices/:id/activity?limit=` | `devices:read` | agent console: streamed agent log lines + recent commands |
+| GET `/devices/:id/actions` | `actions:read` | recent actions for this device |
+| POST `/devices/:id/actions` | `actions:request` | `{actionType, params}` from the device page — policy-checked, needs approval |
 | GET `/incidents?state=active|…&deviceId=` | `incidents:read` | |
 | POST `/incidents/test` | `incidents:create_test` (admin) | explicit `[TEST]` incident, never auto-resolved |
 | GET `/incidents/:id` | `incidents:read` | evidence, diagnostic runs, actions |
@@ -52,6 +55,7 @@ Roles: **admin** = all; **operator** = networks/devices/enroll/revoke/diagnose/a
 | POST `/telemetry` | signed | telemetry schema v1 |
 | GET `/config` | signed | — |
 | GET `/commands` | signed | — |
+| POST `/events` | signed | `{schemaVersion:1, deviceId, events:[{at, level, message, fields}]}` (≤100 events, ≤12 fields each) |
 | POST `/commands/:id/result` | signed | `{status, startedAt, finishedAt, output, error?, measurements[]}` |
 
 ## Diagnostic service (`diagnostic-service`)

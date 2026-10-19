@@ -26,7 +26,6 @@ func cmdExportConfig(ctx context.Context, args []string) error {
 	cfg, fs := commonFlags("export-config", args)
 	out := fs.String("out", "", "output file (default <interface>.conf; the file name becomes the tunnel name)")
 	force := fs.Bool("force", false, "overwrite an existing file")
-	fs.IntVar(&cfg.ListenPort, "listen-port", cfg.ListenPort, "WireGuard UDP listen port")
 	_ = fs.Parse(args)
 	id, err := loadEnrolled(cfg)
 	if err != nil {

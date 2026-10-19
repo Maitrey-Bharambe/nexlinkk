@@ -8,6 +8,8 @@ import { Button, Card, ErrorState, Field, Freshness, KV, Loading, Modal, PageHea
 import StatusBadge from '@/components/StatusBadge';
 import { del, post } from '@/lib/api';
 import { fmtMeasurement, fmtTime, humanize, timeAgo } from '@/lib/format';
+import AgentConsole from '@/features/devices/AgentConsole';
+import DeviceActions from '@/features/devices/DeviceActions';
 
 function SignalCard({ title, state, children, tone }) {
   return (
@@ -155,6 +157,11 @@ export default function DeviceDetail({ params }) {
             </ul>
           )}
         </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <AgentConsole deviceId={deviceId} />
+        <DeviceActions device={d} canRequest={can('actions:request')} canDecide={can('actions:approve:low')} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

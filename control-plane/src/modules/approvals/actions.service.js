@@ -59,6 +59,42 @@ async function proposeActions({ incident, run, proposals, proposedBy, config, re
   return created;
 }
 
+/**
+ * An operator asks for an action directly from a device page (no incident).
+ * Same policy check as AI/rule proposals; it still needs an approval to run.
+ */
+async function requestDeviceAction({ device, user, actionType, params, config, req }) {
+  const verdict = await evaluateAction({ actionType, params, deviceId: device._id, phase: 'propose', config });
+  const action = await ProposedAction.create({
+    incidentId: null,
+    deviceId: device._id,
+    networkId: verdict.networkId || device.networkId,
+    actionType: String(actionType).slice(0, 64),
+    params: verdict.params || params || {},
+    rationale: `Requested from the device page by ${user.email}`,
+    proposedBy: { type: 'user', ref: String(user._id) },
+    risk: verdict.risk || null,
+    requiresApproval: true,
+    validation: { valid: verdict.valid, reasons: verdict.reasons, checkedAt: new Date() },
+    status: verdict.valid ? 'awaiting_approval' : 'rejected_by_policy',
+  });
+  await audit.record(
+    {
+      operation: 'action.request',
+      target: { type: 'device', id: String(device._id), label: device.name },
+      networkId: action.networkId,
+      actionId: action._id,
+      decision: verdict.valid ? 'allow' : 'deny',
+      outcome: verdict.valid ? 'pending' : 'failure',
+      reason: verdict.valid ? null : verdict.reasons.join('; '),
+      metadata: { actionType: action.actionType, params: action.params },
+    },
+    req,
+  );
+  req?.app?.locals?.realtime?.emitNetwork(action.networkId, 'action:update', { actionId: String(action._id) });
+  return action;
+}
+
 async function loadActionInScope(user, actionId) {
   const action = await ProposedAction.findById(actionId);
   if (!action) throw notFound('Action');
@@ -70,7 +106,7 @@ async function loadActionInScope(user, actionId) {
 async function approveAction({ actionId, user, reason, config, req }) {
   const { action } = await loadActionInScope(user, actionId);
   if (action.status !== 'awaiting_approval') throw conflict('ACTION_NOT_PENDING', `Action is ${action.status}`);
-  const incident = await Incident.findById(action.incidentId);
+  const incident = action.incidentId ? await Incident.findById(action.incidentId) : null;
 
   // Re-evaluate at approval time: permissions, device state and rate limits may have changed.
   const verdict = await evaluateAction({
@@ -157,8 +193,10 @@ async function rejectAction({ actionId, user, reason, req }) {
   }
   action.status = 'rejected';
   await action.save();
-  const stillPending = await ProposedAction.exists({ incidentId: action.incidentId, status: 'awaiting_approval' });
-  if (!stillPending) await Incident.updateOne({ _id: action.incidentId, active: true, state: 'awaiting_approval' }, { state: 'investigating' });
+  if (action.incidentId) {
+    const stillPending = await ProposedAction.exists({ incidentId: action.incidentId, status: 'awaiting_approval' });
+    if (!stillPending) await Incident.updateOne({ _id: action.incidentId, active: true, state: 'awaiting_approval' }, { state: 'investigating' });
+  }
   await audit.record(
     {
       operation: 'action.reject',
@@ -200,7 +238,7 @@ async function finalizeCommand({ command, config, realtime, req }) {
   // marks it resolved by itself.
   const device = await Device.findById(action.deviceId).lean();
   if (device) await runDetector({ config, realtime, networkIds: [device.networkId], deviceId: device._id });
-  const incident = await Incident.findById(action.incidentId);
+  const incident = action.incidentId ? await Incident.findById(action.incidentId) : null;
   if (incident?.active && incident.state === 'mitigating') {
     const inFlight = await ProposedAction.exists({ incidentId: incident._id, status: { $in: ['queued', 'executing'] } });
     if (!inFlight) await Incident.updateOne({ _id: incident._id, active: true }, { state: 'investigating' });
@@ -221,4 +259,4 @@ async function sweepTimedOutCommands({ config, realtime }) {
   return expired.length;
 }
 
-module.exports = { proposeActions, approveAction, rejectAction, finalizeCommand, sweepTimedOutCommands, loadActionInScope };
+module.exports = { requestDeviceAction, proposeActions, approveAction, rejectAction, finalizeCommand, sweepTimedOutCommands, loadActionInScope };

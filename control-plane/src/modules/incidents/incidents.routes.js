@@ -39,7 +39,7 @@ const closeBody = z.object({ note: z.string().trim().min(3).max(500) }).strict()
 function serializeAction(a, approval, approverName) {
   return {
     id: String(a._id),
-    incidentId: String(a.incidentId),
+    incidentId: a.incidentId ? String(a.incidentId) : null,
     deviceId: String(a.deviceId),
     networkId: String(a.networkId),
     actionType: a.actionType,

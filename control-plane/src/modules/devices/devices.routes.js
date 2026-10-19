@@ -4,7 +4,11 @@ const express = require('express');
 const { z } = require('zod');
 const { Device, EnrollmentToken, AgentCommand } = require('../../database/models/device');
 const { Membership } = require('../../database/models/network');
-const { Heartbeat, Measurement, MEASUREMENT_TYPES } = require('../../database/models/telemetry');
+const { Heartbeat, Measurement, AgentEvent, MEASUREMENT_TYPES } = require('../../database/models/telemetry');
+const { ProposedAction } = require('../../database/models/incidents');
+const { ACTIONS } = require('../policies/actionRegistry');
+const { requestDeviceAction } = require('../approvals/actions.service');
+const { serializeActions } = require('../incidents/incidents.routes');
 const { Incident } = require('../../database/models/incidents');
 const { AuditEvent } = require('../../database/models/audit');
 const { validate } = require('../../middleware/validate');
@@ -36,6 +40,13 @@ const enrollBody = z
   })
   .strict();
 const revokeBody = z.object({ reason: z.string().trim().min(3).max(300) }).strict();
+const activityQuery = z.object({ limit: z.coerce.number().int().min(1).max(300).default(150) }).strict();
+const actionBody = z
+  .object({
+    actionType: z.enum(Object.keys(ACTIONS)),
+    params: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict();
 const measurementQuery = z
   .object({
     type: z.enum(MEASUREMENT_TYPES).optional(),
@@ -184,6 +195,61 @@ function devicesRouter({ config, limits }) {
           measuredAt: m.measuredAt,
         })),
       );
+    }),
+  );
+
+  // "Agent console": the agent's own log lines plus the commands it ran.
+  r.get(
+    '/devices/:deviceId/activity',
+    requirePermission('devices:read'),
+    validate({ params: deviceParams, query: activityQuery }),
+    ah(async (req, res) => {
+      const { device } = await loadDeviceInScope(req.user, req.valid.params.deviceId);
+      const [events, commands] = await Promise.all([
+        AgentEvent.find({ deviceId: device._id }).sort({ at: -1, _id: -1 }).limit(req.valid.query.limit).lean(),
+        AgentCommand.find({ deviceId: device._id }).sort({ createdAt: -1 }).limit(20).lean(),
+      ]);
+      send(res, {
+        agentVersion: device.agentVersion,
+        lastHeartbeatAt: device.lastHeartbeatAt,
+        events: events.map((e) => ({ id: String(e._id), at: e.at, level: e.level, message: e.message, fields: e.fields || {} })),
+        commands: commands.map((c) => ({
+          id: String(c._id),
+          type: c.type,
+          status: c.status,
+          createdAt: c.createdAt,
+          deliveredAt: c.deliveredAt,
+          completedAt: c.completedAt,
+          error: c.result?.error || null,
+          output: c.result?.output || null,
+        })),
+      });
+    }),
+  );
+
+  r.get(
+    '/devices/:deviceId/actions',
+    requirePermission('actions:read'),
+    validate({ params: deviceParams }),
+    ah(async (req, res) => {
+      const { device } = await loadDeviceInScope(req.user, req.valid.params.deviceId);
+      const actions = await ProposedAction.find({ deviceId: device._id }).sort({ createdAt: -1 }).limit(15).lean();
+      send(res, await serializeActions(actions));
+    }),
+  );
+
+  // Ask the agent to do something from the device page. Goes through the
+  // policy engine and still needs an approval before the agent runs it.
+  r.post(
+    '/devices/:deviceId/actions',
+    requirePermission('actions:request'),
+    requireCsrf,
+    limits.sensitive,
+    validate({ params: deviceParams, body: actionBody }),
+    ah(async (req, res) => {
+      const { device } = await loadDeviceInScope(req.user, req.valid.params.deviceId, { write: true });
+      const action = await requestDeviceAction({ device, user: req.user, ...req.valid.body, config, req });
+      send(res, (await serializeActions([action.toObject()]))[0], 201);
     }),
   );
 

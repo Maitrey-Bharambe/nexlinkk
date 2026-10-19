@@ -23,7 +23,7 @@
 ![Groq](https://img.shields.io/badge/Groq_LLM-F55036?style=for-the-badge&logoColor=white)
 
 ![tests](https://img.shields.io/badge/tests-94_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
-![control plane](https://img.shields.io/badge/control--plane-59%2F59-C7FF2E?style=flat-square&labelColor=2E2E2E)
+![control plane](https://img.shields.io/badge/control--plane-64%2F64-C7FF2E?style=flat-square&labelColor=2E2E2E)
 ![agent](https://img.shields.io/badge/go--agent-20%2F20_%2B_integration-C7FF2E?style=flat-square&labelColor=2E2E2E)
 ![diagnostics](https://img.shields.io/badge/diagnostic--service-15%2F15-C7FF2E?style=flat-square&labelColor=2E2E2E)
 
@@ -55,13 +55,16 @@ failures, and run **approved** remote actions from a web console.
 | 🌐 | **Private networks** | Pick an IPv4 range; NexLink validates it, prevents overlaps and hands every device a unique virtual address. |
 | 🪪 | **Cryptographic device identity** | Each PC generates its own Ed25519 identity. One-time enrollment tokens, signed requests, instant revocation. |
 | 🔐 | **WireGuard data plane** | Devices talk directly over encrypted UDP. The agent can export a ready-to-import tunnel file for the WireGuard app. |
+| 🖧 | **Second PC in one minute** | Open the portal from any PC on the same Wi-Fi, download the agent, enroll — `run --userspace` carries the WireGuard tunnel inside the agent: no WireGuard app, no admin rights. |
 | 💓 | **Live, honest health** | Agent liveness, interface state and tunnel handshakes are tracked separately; RTT, jitter and loss are measured through the tunnel. |
 | 🕸️ | **Interactive topology** | A live map that tells *configured* links apart from links WireGuard has actually confirmed. |
 | 🩺 | **Automatic diagnostics** | Incidents are detected from real observations; read-only tools collect evidence; diagnosis by rules or AI. |
 | 🤖 | **AI with guardrails** | Groq-powered diagnosis must cite collected evidence and can only propose allowlisted actions. |
 | ✅ | **Approve, execute, verify** | Every action needs a human yes, runs on the agent, and is verified from fresh measurements. |
 | 📜 | **Audit log** | Every security-sensitive operation is recorded by the backend and searchable in the console. |
-| 🧰 | **Agent toolkit** | `enroll` · `run` · `doctor` · `export-config` · `lab` · `probe` — from first enrollment to troubleshooting. |
+| 🖥️ | **Agent console in the browser** | Each device page streams the agent's own output live, and **run on this device** buttons send approved commands and show the verified result. |
+| ⚙️ | **Runs in the background** | `nexlink-agent install` turns the agent into a Windows service that starts with the PC — no terminal needed. |
+| 🧰 | **Agent toolkit** | `enroll` · `run` · `install` · `doctor` · `export-config` · `lab` · `probe` — from first enrollment to troubleshooting. |
 
 ## 📸 Screenshots
 
@@ -323,7 +326,12 @@ Set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `control-plane/.env`. Only
 <details>
 <summary>🔗 Connect two PCs over WireGuard</summary>
 
-Step-by-step, including Windows firewall commands: **[docs/two-pc-test.md](docs/two-pc-test.md)**.
+On PC-2 (same Wi-Fi), open `http://<PC-1 LAN IP>:3000` → **register this pc** → download the agent, then:
+```powershell
+.\nexlink-agent.exe enroll --server http://<PC-1 LAN IP>:4000 --allow-http
+.\nexlink-agent.exe run --userspace --allow-http
+```
+On PC-1 (Administrator, once): `.\scripts\lan-firewall.ps1 -Server -Agent`. Full runbook: **[docs/two-pc-test.md](docs/two-pc-test.md)**.
 `nexlink-agent export-config` writes the tunnel file for the WireGuard app; `nexlink-agent doctor` tells you exactly what is missing.
 </details>
 
@@ -331,7 +339,7 @@ Step-by-step, including Windows firewall commands: **[docs/two-pc-test.md](docs/
 
 | Suite | Command | Result | Category |
 |---|---|:---:|---|
-| 🧭 Control plane | `cd control-plane && npm test` | ✅ 59 / 59 | integration vs ephemeral MongoDB + simulated agent with real keys |
+| 🧭 Control plane | `cd control-plane && npm test` | ✅ 64 / 64 | integration vs ephemeral MongoDB + simulated agent with real keys |
 | 🐹 Go agent | `cd networking-agent && go test ./...` | ✅ 20 / 20 | unit + real wireguard-go tunnel on loopback (no OS adapters) |
 | 🐹 Agent ↔ control plane | `go test -tags integration ./tests/` | ✅ passed | real agent vs running control plane |
 | 🤖 Diagnostic service | `cd diagnostic-service && python -m pytest -q` | ✅ 15 / 15 | contract tests, Groq mocked |

@@ -13,7 +13,7 @@ const { visibleNetworkIds } = require('../modules/networks/scope');
 function attachRealtime(httpServer, { config, logger }) {
   const io = new Server(httpServer, {
     path: '/socket.io',
-    cors: { origin: config.corsOrigins, credentials: true },
+    cors: { origin: (origin, cb) => cb(null, config.isAllowedOrigin(origin)), credentials: true },
     serveClient: false,
   });
 

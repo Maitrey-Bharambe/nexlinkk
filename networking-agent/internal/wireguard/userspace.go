@@ -159,3 +159,81 @@ func parseUAPI(name, raw string) InterfaceStatus {
 }
 
 func (u *UserspaceDevice) Close() { u.dev.Close() }
+
+// SyncPeers brings the device's peer set in line with the desired config
+// without disturbing live sessions: only new or changed peers are written,
+// removed peers are deleted, and an endpoint is only (re)set while the peer
+// has no fresh handshake (WireGuard learns roaming endpoints by itself).
+// Returns whether anything changed.
+func (u *UserspaceDevice) SyncPeers(cfg DesiredConfig) (bool, error) {
+	if err := ValidateDesired(cfg); err != nil {
+		return false, err
+	}
+	cur := map[string]PeerStatus{}
+	for _, p := range u.Inspect(context.Background(), "").Peers {
+		cur[p.PublicKey] = p
+	}
+	want := map[string]bool{}
+	var b strings.Builder
+	for _, p := range cfg.Peers {
+		want[p.PublicKey] = true
+		k, err := wgtypes.ParseKey(p.PublicKey)
+		if err != nil {
+			return false, fmt.Errorf("peer key: %w", err)
+		}
+		c, exists := cur[p.PublicKey]
+		fresh := exists && !c.LastHandshake.IsZero() && time.Since(c.LastHandshake) < 3*time.Minute
+		setEndpoint := p.Endpoint != "" && !fresh && (!exists || c.Endpoint != p.Endpoint)
+		ipsChanged := !exists || !sameStrings(c.AllowedIPs, p.AllowedIPs)
+		if exists && !setEndpoint && !ipsChanged {
+			continue
+		}
+		fmt.Fprintf(&b, "public_key=%s\n", hexKey(k))
+		if setEndpoint {
+			fmt.Fprintf(&b, "endpoint=%s\n", p.Endpoint)
+		}
+		if p.PersistentKeepalive > 0 {
+			fmt.Fprintf(&b, "persistent_keepalive_interval=%d\n", int(p.PersistentKeepalive.Seconds()))
+		}
+		if ipsChanged {
+			b.WriteString("replace_allowed_ips=true\n")
+			for _, a := range p.AllowedIPs {
+				fmt.Fprintf(&b, "allowed_ip=%s\n", a)
+			}
+		}
+	}
+	for key := range cur {
+		if want[key] {
+			continue
+		}
+		k, err := wgtypes.ParseKey(key)
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(&b, "public_key=%s\nremove=true\n", hexKey(k))
+	}
+	if b.Len() == 0 {
+		return false, nil
+	}
+	return true, u.dev.IpcSet(b.String())
+}
+
+// ListenPort returns the UDP port the device listens on.
+func (u *UserspaceDevice) ListenPort() int { return u.listenPort }
+
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := map[string]int{}
+	for _, x := range a {
+		seen[x]++
+	}
+	for _, x := range b {
+		if seen[x] == 0 {
+			return false
+		}
+		seen[x]--
+	}
+	return true
+}

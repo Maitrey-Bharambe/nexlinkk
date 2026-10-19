@@ -111,3 +111,32 @@ func freeUDPPort(t *testing.T) int {
 	defer c.Close()
 	return c.LocalAddr().(*net.UDPAddr).Port
 }
+
+func TestSyncPeersKeepsSessionsAndRemovesStalePeers(t *testing.T) {
+	ka, _ := wgtypes.GeneratePrivateKey()
+	kb, _ := wgtypes.GeneratePrivateKey()
+	kc, _ := wgtypes.GeneratePrivateKey()
+	d, err := NewUserspaceDevice("sync", ka, netip.MustParseAddr("10.125.0.2"), freeUDPPort(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	cfg := DesiredConfig{NetworkCIDR: "10.125.0.0/24", Peers: []DesiredPeer{
+		{PublicKey: kb.PublicKey().String(), AllowedIPs: []string{"10.125.0.3/32"}, Endpoint: "127.0.0.1:40001", PersistentKeepalive: 25 * time.Second},
+		{PublicKey: kc.PublicKey().String(), AllowedIPs: []string{"10.125.0.4/32"}},
+	}}
+	if changed, err := d.SyncPeers(cfg); err != nil || !changed {
+		t.Fatalf("first sync: changed=%v err=%v", changed, err)
+	}
+	if changed, _ := d.SyncPeers(cfg); changed {
+		t.Fatal("identical config must be a no-op")
+	}
+	cfg.Peers = cfg.Peers[:1] // peer C left the network
+	if changed, _ := d.SyncPeers(cfg); !changed {
+		t.Fatal("removal not applied")
+	}
+	st := d.Inspect(context.Background(), "")
+	if len(st.Peers) != 1 || st.Peers[0].PublicKey != kb.PublicKey().String() || st.Peers[0].Endpoint != "127.0.0.1:40001" {
+		t.Fatalf("unexpected peers %+v", st.Peers)
+	}
+}

@@ -13,6 +13,49 @@ Every command marked **(Admin)** must run in PowerShell opened with *Run as admi
 
 ---
 
+## Quick path: userspace tunnel (recommended — no WireGuard app, no admin on PC-2)
+
+`run --userspace` carries the WireGuard tunnel inside the agent (wireguard-go + an in-process network
+stack). It carries NexLink traffic — handshakes, probes and approved tests — not other Windows apps.
+For a system-wide VPN adapter use the full path in sections 0–5 below.
+
+**PC-1 (the portal PC), once:**
+
+1. Services running (MongoDB, control plane on 4000, console on 3000). `control-plane/.env` has
+   `CORS_ALLOW_PRIVATE_LAN=true`.
+2. Wi-Fi set to *Private* (Settings → Network & internet → Wi-Fi → your network → Private network).
+3. **(Admin)** open the portal, control plane and WireGuard ports to the LAN (Private profile only):
+   ```powershell
+   cd D:\projects\cn
+   .\scripts\lan-firewall.ps1 -Server -Agent
+   ```
+   It prints PC-1's LAN address, e.g. `192.168.0.105`.
+4. Start PC-1's own agent (it is already enrolled as `pc-1`):
+   ```powershell
+   cd D:\projects\cn\networking-agent\bin
+   .\nexlink-agent.exe run --userspace --allow-http --state-dir .\pc-1
+   ```
+
+**PC-2 (same Wi-Fi):**
+
+1. In a browser open `http://192.168.0.105:3000` and sign in with the **same account** as PC-1
+   (so both devices land in the same network).
+2. **register this pc** → name it → **download agent for Windows**. If SmartScreen warns:
+   *More info → Run anyway*.
+3. PowerShell (normal, not admin), paste the token when asked:
+   ```powershell
+   cd $HOME\Downloads
+   .\nexlink-agent.exe enroll --server http://192.168.0.105:4000 --allow-http
+   .\nexlink-agent.exe run --userspace --allow-http
+   ```
+   When Windows asks about network access, allow it on **private** networks.
+
+**Verify (from either PC's browser):** the setup page turns lime ("PC-2 is in"); the device page's
+agent console shows `tunnel peers updated` then `tunnel probe … rtt_ms=…`; **topology** shows the link
+as *connected · direct*. On the device page, **test tunnel** to the other PC → approve → verified result.
+
+---
+
 ## 0. One-time prep
 
 **PC-1**

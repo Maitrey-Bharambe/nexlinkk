@@ -19,6 +19,7 @@ const ROLE_PERMISSIONS = {
     'incidents:diagnose',
     'incidents:close',
     'actions:read',
+    'actions:request',
     'actions:approve:low',
     'audit:read',
   ],

@@ -91,14 +91,15 @@ const VERIFICATION_OUTCOMES = [
 
 const proposedActionSchema = new Schema(
   {
-    incidentId: { type: Schema.Types.ObjectId, ref: 'Incident', required: true },
+    // null for actions requested directly from a device page (no incident).
+    incidentId: { type: Schema.Types.ObjectId, ref: 'Incident', default: null },
     diagnosticRunId: { type: Schema.Types.ObjectId, ref: 'DiagnosticRun', default: null },
     deviceId: { type: Schema.Types.ObjectId, ref: 'Device', required: true },
     networkId: { type: Schema.Types.ObjectId, ref: 'Network', required: true },
     actionType: { type: String, required: true },
     params: { type: Schema.Types.Mixed, default: {} },
     rationale: { type: String, default: null },
-    proposedBy: { type: { type: String, enum: ['deterministic_rules', 'diagnostic_service'] }, ref: String },
+    proposedBy: { type: { type: String, enum: ['deterministic_rules', 'diagnostic_service', 'user'] }, ref: String },
     risk: { type: String, enum: ['low', 'medium', 'high'], default: null },
     requiresApproval: { type: Boolean, default: true },
     validation: {

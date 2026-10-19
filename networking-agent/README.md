@@ -22,11 +22,15 @@ NEXLINK_IT_SERVER=http://127.0.0.1:4000 NEXLINK_IT_TOKEN=nxe_... go test -tags i
 ```bash
 nexlink-agent enroll --server https://cp.example.com     # paste token at the prompt (or NEXLINK_ENROLLMENT_TOKEN)
 nexlink-agent run                                       # safe mode: read-only
+nexlink-agent run --userspace --listen-port 51820      # own userspace WireGuard tunnel (wireguard-go): no WireGuard app, no admin
 nexlink-agent status                                    # local inspection, no network calls
 nexlink-agent probe --target 10.42.0.3:22 --count 5     # bounded TCP probe
 nexlink-agent doctor                                    # read-only preflight: control plane, WireGuard, handshakes, tunnel probe
 nexlink-agent export-config                             # write nexlink0.conf for the WireGuard app / wg-quick (contains private key)
 nexlink-agent lab --a DIR_A --b DIR_B                   # real WireGuard tunnel (wireguard-go) between two enrolled agents on one host
+nexlink-agent install                                   # Windows: run in the background as the "NexLink Agent" service (Administrator)
+nexlink-agent service-status                            # is the service running?
+nexlink-agent uninstall                                 # stop and remove the service (keys and enrollment are kept)
 NEXLINK_ENABLE_PRIVILEGED=true nexlink-agent apply --dry-run   # show desired WireGuard peers
 NEXLINK_ENABLE_PRIVILEGED=true nexlink-agent apply             # explicitly apply + verify
 ```
@@ -41,6 +45,27 @@ NEXLINK_ENABLE_PRIVILEGED=true nexlink-agent apply             # explicitly appl
 | `NEXLINK_ALLOW_HTTP` | `false` | allow plain http to a non-loopback server (lab only) |
 | `NEXLINK_PROBE_TCP_PORT` | 7946 | TCP port each agent answers on (tunnel address only) for peer probes |
 | `NEXLINK_LISTEN_PORT` | 51820 | WireGuard UDP port; advertised to peers and written by `export-config` |
+| `NEXLINK_USERSPACE` | `false` | same as `--userspace`: the agent runs the tunnel itself; it carries NexLink traffic (handshakes, probes, approved tests), not other apps |
+
+## Background service (Windows)
+
+After a one-time `enroll`, run in an **Administrator** PowerShell:
+
+```powershell
+.
+exlink-agent.exe install --state-dir <the folder you enrolled with>      # add --allow-http for a plain-http lab server
+```
+
+The agent then starts with Windows and keeps running with no window open. It logs to
+`<state-dir>agent.log` and streams its output to the **agent console** on the device page.
+`service --debug` runs the exact service code in the current window (no Administrator needed) for troubleshooting.
+
+## Agent console & actions from the UI
+
+From v0.2.0 the agent uploads its own log lines (Info and above, secret-looking fields redacted) after every
+heartbeat (`POST /api/v1/agent/events`, signed). The device page shows them live, and its **run on this
+device** buttons queue approved commands (connectivity test, refresh WireGuard status, re-apply VPN config)
+that the agent executes on its next heartbeat.
 
 ## Safety model
 

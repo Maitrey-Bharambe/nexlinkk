@@ -39,9 +39,38 @@ type Agent struct {
 	responder net.Listener
 
 	// Hooks used by `nexlink-agent lab` (nil/false in normal operation).
-	ExtraMeasurements  func(ctx context.Context) []telemetry.Measurement
+	ExtraMeasurements func(ctx context.Context) []telemetry.Measurement
+	// PeerSync, when set, is called before every telemetry report to keep a
+	// userspace WireGuard device's peers in line with the control plane.
+	PeerSync           func(ctx context.Context)
 	CandidatesOverride func() []string
 	DisableResponder   bool
+
+	// Events, when set, is uploaded after every heartbeat so the console can
+	// show the agent's own output (see events.go).
+	Events *EventBuffer
+}
+
+type eventBatch struct {
+	SchemaVersion int     `json:"schemaVersion"`
+	DeviceID      string  `json:"deviceId"`
+	Events        []Event `json:"events"`
+}
+
+// flushEvents uploads buffered log events. Failures keep them for next time.
+func (a *Agent) flushEvents(ctx context.Context) {
+	if a.Events == nil {
+		return
+	}
+	for i := 0; i < 3 && a.Events.Len() > 0; i++ {
+		evs := a.Events.Take(100)
+		err := a.client.Do(ctx, "POST", "/api/v1/agent/events", eventBatch{SchemaVersion: 1, DeviceID: a.id.State.DeviceID, Events: evs}, nil)
+		if err != nil {
+			a.Events.Requeue(evs)
+			a.log.Debug("event upload failed", "err", err)
+			return
+		}
+	}
 }
 
 // ensureResponder starts the tunnel-address probe responder once the tunnel
@@ -169,7 +198,17 @@ func (a *Agent) SendTelemetry(ctx context.Context) error {
 	if a.ExtraMeasurements != nil {
 		report.Measurements = append(report.Measurements, a.ExtraMeasurements(ctx)...)
 	}
-	return a.client.Do(ctx, "POST", "/api/v1/agent/telemetry", report, nil)
+	if err := a.client.Do(ctx, "POST", "/api/v1/agent/telemetry", report, nil); err != nil {
+		return err
+	}
+	attrs := []any{"interface", orUnknown(st.State), "source", st.Source, "peers", len(peers)}
+	for _, m := range measurements {
+		if m.Type == "rtt" && m.Valid && m.Value != nil {
+			attrs = append(attrs, "control_plane_rtt_ms", *m.Value)
+		}
+	}
+	a.log.Info("telemetry sent", attrs...)
+	return nil
 }
 
 func (a *Agent) pollCommands(ctx context.Context) {
@@ -185,7 +224,16 @@ func (a *Agent) pollCommands(ctx context.Context) {
 		if err := a.client.Do(ctx, "POST", "/api/v1/agent/commands/"+c.ID+"/result", res, &ack); err != nil {
 			a.log.Warn("report command result failed", "id", c.ID, "err", err)
 		} else {
-			a.log.Info("command finished", "id", c.ID, "status", res.Status)
+			attrs := []any{"id", c.ID, "type", c.Type, "status", res.Status}
+			if res.Error != nil {
+				attrs = append(attrs, "error", *res.Error)
+			}
+			for _, m := range res.Measurements {
+				if m.Valid && m.Value != nil {
+					attrs = append(attrs, m.Type+"_"+m.Unit, *m.Value)
+				}
+			}
+			a.log.Info("command finished", attrs...)
 		}
 	}
 }
@@ -194,6 +242,9 @@ func (a *Agent) pollCommands(ctx context.Context) {
 func (a *Agent) Run(ctx context.Context) error {
 	a.log.Info("agent starting", "device", a.id.State.DeviceID, "interface", a.cfg.Interface, "privileged", a.cfg.Privileged)
 	a.inspect(ctx)
+	if a.PeerSync != nil {
+		a.PeerSync(ctx)
+	}
 	if err := a.SendTelemetry(ctx); err != nil {
 		if fatal(err) {
 			return err
@@ -225,6 +276,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		if pending > 0 {
 			a.pollCommands(ctx)
 		}
+		a.flushEvents(ctx)
 		return nil
 	}
 	if err := tick(); err != nil {
@@ -241,6 +293,9 @@ func (a *Agent) Run(ctx context.Context) error {
 				return err
 			}
 		case <-tm.C:
+			if a.PeerSync != nil {
+				a.PeerSync(ctx)
+			}
 			if err := a.SendTelemetry(ctx); err != nil {
 				if fatal(err) {
 					return err

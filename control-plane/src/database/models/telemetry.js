@@ -75,4 +75,19 @@ const Heartbeat = models.Heartbeat || model('Heartbeat', heartbeatSchema);
 const Measurement = models.Measurement || model('Measurement', measurementSchema);
 const PeerObservation = models.PeerObservation || model('PeerObservation', peerObservationSchema);
 
-module.exports = { Heartbeat, Measurement, PeerObservation, MEASUREMENT_TYPES, TARGET_KINDS };
+// Agent log lines (the "agent console" in the UI). Bounded by TTL.
+const agentEventSchema = new Schema({
+  deviceId: { type: Schema.Types.ObjectId, ref: 'Device', required: true },
+  at: { type: Date, required: true },
+  receivedAt: { type: Date, required: true },
+  level: { type: String, enum: ['debug', 'info', 'warn', 'error'], required: true },
+  message: { type: String, required: true },
+  fields: { type: Schema.Types.Mixed, default: {} },
+  expiresAt: { type: Date, required: true },
+});
+agentEventSchema.index({ deviceId: 1, at: -1 });
+agentEventSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+const AgentEvent = models.AgentEvent || model('AgentEvent', agentEventSchema);
+
+module.exports = { Heartbeat, Measurement, PeerObservation, AgentEvent, MEASUREMENT_TYPES, TARGET_KINDS };

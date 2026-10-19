@@ -54,3 +54,6 @@ desktop.ini
 
 # Office lock/temp files (created while a document is open)
 ~$*
+
+# Agent binary served by the portal for download (build output)
+frontend/public/downloads/

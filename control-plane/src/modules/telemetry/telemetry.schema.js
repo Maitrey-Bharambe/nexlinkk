@@ -129,8 +129,33 @@ const enrollSchema = z
   })
   .strict();
 
+// Agent log lines streamed to the console's "agent console" panel.
+const agentEventsSchema = z
+  .object({
+    schemaVersion: z.literal(SCHEMA_VERSION),
+    deviceId: objectId,
+    events: z
+      .array(
+        z
+          .object({
+            at: isoDate,
+            level: z.enum(['debug', 'info', 'warn', 'error']),
+            message: z.string().min(1).max(300),
+            fields: z
+              .record(z.string().max(40), z.union([z.string().max(200), z.number().finite(), z.boolean(), z.null()]))
+              .refine((o) => Object.keys(o).length <= 12, 'at most 12 fields')
+              .default({}),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(100),
+  })
+  .strict();
+
 module.exports = {
   SCHEMA_VERSION,
+  agentEventsSchema,
   CAPABILITIES,
   UNIT_FOR_TYPE,
   measurementSchema,

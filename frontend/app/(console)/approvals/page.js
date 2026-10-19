@@ -41,7 +41,11 @@ export default function ApprovalsPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {data.map((a) => (
             <div key={a.id}>
-              <Link href={`/diagnostics/${a.incidentId}`} className="label mb-1.5 block hover:text-lime">incident {a.incidentId} →</Link>
+              {a.incidentId ? (
+                <Link href={`/diagnostics/${a.incidentId}`} className="label mb-1.5 block hover:text-lime">incident {a.incidentId} →</Link>
+              ) : (
+                <Link href={`/devices/${a.deviceId}`} className="label mb-1.5 block hover:text-lime">requested from device page · {a.deviceName || a.deviceId} →</Link>
+              )}
               <ActionCard action={a} showDevice canDecide={can('actions:approve:low')} onChange={reload} />
             </div>
           ))}

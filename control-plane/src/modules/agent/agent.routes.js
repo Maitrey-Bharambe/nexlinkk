@@ -7,9 +7,10 @@ const { ProposedAction } = require('../../database/models/incidents');
 const { agentAuth } = require('../../middleware/agentAuth');
 const { validate } = require('../../middleware/validate');
 const { send, ah, objectId } = require('../../utils/http');
-const { notFound, conflict } = require('../../utils/errors');
+const { notFound, conflict, badRequest } = require('../../utils/errors');
 const { z } = require('zod');
-const { heartbeatSchema, telemetrySchema, commandResultSchema, enrollSchema } = require('../telemetry/telemetry.schema');
+const { heartbeatSchema, telemetrySchema, commandResultSchema, enrollSchema, agentEventsSchema } = require('../telemetry/telemetry.schema');
+const { AgentEvent } = require('../../database/models/telemetry');
 const { recordHeartbeat, recordTelemetry, ingestMeasurements } = require('../telemetry/telemetry.service');
 const { completeEnrollment } = require('../enrollment/enrollment.service');
 const { finalizeCommand } = require('../approvals/actions.service');
@@ -109,6 +110,37 @@ function agentRouter({ config, limits }) {
       const out = await recordTelemetry(req.device, req.valid.body, { config, sourceAddress: req.ip });
       req.app.locals.realtime?.emitNetwork(req.device.networkId, 'device:update', { deviceId: String(req.device._id) });
       send(res, { accepted: out.stored, unknownPeers: out.unknownPeers, configVersion: out.configVersion, interfaceKeyMatches: out.keyMatches });
+    }),
+  );
+
+  // Agent log lines for the console's "agent console" panel. Attributed to the
+  // authenticated device only; secret-looking fields are redacted again here.
+  r.post(
+    '/events',
+    limits.agent,
+    authed,
+    validate({ body: agentEventsSchema }),
+    ah(async (req, res) => {
+      const b = req.valid.body;
+      if (String(req.device._id) !== b.deviceId) {
+        throw badRequest('DEVICE_ID_MISMATCH', 'deviceId does not match the authenticated agent');
+      }
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + config.HEARTBEAT_RETENTION_DAYS * 86400_000);
+      const SECRET = /token|secret|password|private|signature|key$/i;
+      const docs = b.events.map((e) => ({
+        deviceId: req.device._id,
+        // Agent clocks can drift; never store a time in the future.
+        at: new Date(Math.min(new Date(e.at).getTime(), now.getTime())),
+        receivedAt: now,
+        level: e.level,
+        message: e.message,
+        fields: Object.fromEntries(Object.entries(e.fields).map(([k, v]) => [k, SECRET.test(k) ? '[redacted]' : v])),
+        expiresAt,
+      }));
+      await AgentEvent.insertMany(docs);
+      req.app.locals.realtime?.emitNetwork(req.device.networkId, 'agent:event', { deviceId: String(req.device._id) });
+      send(res, { accepted: docs.length });
     }),
   );
 

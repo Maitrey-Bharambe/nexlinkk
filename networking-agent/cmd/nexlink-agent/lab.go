@@ -30,6 +30,7 @@ type labSide struct {
 	dev  *wireguard.UserspaceDevice
 	ip   netip.Addr
 	ag   *agent.Agent
+	log  *slog.Logger
 	mu   sync.Mutex
 	rtt  *float64
 }
@@ -143,7 +144,12 @@ func cmdLab(ctx context.Context, args []string) error {
 		s, other := s, sides[1-i]
 		acfg := cfg
 		acfg.Interface, acfg.ListenPort = s.dev.Name, s.port
-		s.ag = agent.New(acfg, s.id, s.dev, wireguard.NewApplier(false, s.id.WireGuardPrivateKey()), log.With("agent", s.name))
+		// Each side streams its own output to its device's console in the UI.
+		events := agent.NewEventBuffer(500)
+		s.log = agent.NewEventLogger(log.Handler().WithAttrs([]slog.Attr{slog.String("agent", s.name)}), events)
+		s.log.Info("lab tunnel starting", "mode", "wireguard-go (userspace)", "tunnel_ip", s.ip.String(), "udp", "127.0.0.1:"+strconv.Itoa(s.port), "peer", other.id.State.DeviceName)
+		s.ag = agent.New(acfg, s.id, s.dev, wireguard.NewApplier(false, s.id.WireGuardPrivateKey()), s.log)
+		s.ag.Events = events
 		s.ag.DisableResponder = true
 		s.ag.Executor().Dial = func(ctx context.Context, addr string) (net.Conn, error) {
 			ap, err := netip.ParseAddrPort(addr)
@@ -208,6 +214,7 @@ func cmdLab(ctx context.Context, args []string) error {
 			s.mu.Unlock()
 			ok = ok && fresh
 			fmt.Printf("  %s %-14s handshake %-8s  tunnel RTT %s\n", s.name, s.id.State.DeviceName, hs, rtt)
+			s.log.Info("tunnel status", "handshake", hs, "tunnel_rtt", rtt)
 		}
 		return ok
 	}
