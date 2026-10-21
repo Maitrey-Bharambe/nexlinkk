@@ -25,15 +25,34 @@
   --radius-blob: 28px;
 }
 
+html {
+  background: var(--color-ink);
+}
 html,
 body {
-  background: var(--color-ink);
   color: #fff;
 }
 
 body {
   font-family: var(--font-display);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * App-wide backdrop (public/bg.png, served as a 64 KB WebP). A fixed layer
+ * rather than background-attachment: fixed, which mobile Safari ignores.
+ * The gradient keeps text on the left/top readable; cards stay opaque.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(100deg, rgba(15, 15, 15, 0.82) 0%, rgba(15, 15, 15, 0.55) 45%, rgba(15, 15, 15, 0.25) 100%),
+    image-set(url('/bg.webp') type('image/webp'), url('/bg.png') type('image/png')) center / cover no-repeat,
+    var(--color-ink);
 }
 
 ::selection {
@@ -94,4 +113,19 @@ body {
 }
 .react-flow__attribution a {
   color: #808080 !important;
+}
+
+/* /simulation: traffic flowing along the tunnel and control links. */
+@keyframes sim-dash {
+  to { stroke-dashoffset: -48; }
+}
+.sim-flow {
+  animation: sim-dash 0.9s linear infinite;
+}
+.sim-flow-slow {
+  animation: sim-dash 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sim-flow,
+  .sim-flow-slow { animation: none; }
 }

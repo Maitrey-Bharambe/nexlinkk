@@ -47,6 +47,7 @@ function topologyRouter({ config }) {
           label: d.name,
           networkId: String(d.networkId),
           address: m?.status === 'active' ? m.address : null,
+          endpoint: d.endpoints?.reported?.[0] || null,
           enrollmentState: d.enrollmentState,
           status: h.status,
           agent: h.agent.status,

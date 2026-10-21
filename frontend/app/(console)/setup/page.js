@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Check, Copy, Download, Laptop, Loader2 } from 'lucide-react';
+import { Check, Copy, Laptop, Loader2 } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
 import { Button, Card, ErrorState, Field, PageHeader, inputCls } from '@/components/ui';
 import StatusBadge from '@/components/StatusBadge';
@@ -22,26 +22,58 @@ const DEFAULT_NAME = { windows: 'my-windows-pc', mac: 'my-mac', linux: 'my-linux
 const isLocalHost = (h) => h === 'localhost' || h === '127.0.0.1';
 
 /**
- * Commands for the PC being registered. When the portal is opened from
- * another PC on the LAN, the server address is this page's host and plain
- * http needs --allow-http. --userspace runs the tunnel inside the agent, so
- * no WireGuard app and no Administrator rights are required.
+ * macOS / Linux: no one-line installer yet, so the agent is built from the
+ * repository. --userspace runs the tunnel inside the agent (no WireGuard app,
+ * no root); plain http to a LAN address needs --allow-http.
  */
-function commandsFor(platform, server, host) {
+function unixCommands(server, host) {
   const flags = isLocalHost(host) ? '' : ' --allow-http';
-  if (platform === 'windows') {
-    return [
-      '# PowerShell, in the folder you downloaded nexlink-agent.exe to (e.g. Downloads)',
-      'cd $HOME\\Downloads',
-      `.\\nexlink-agent.exe enroll --server ${server}${flags}`,
-      `.\\nexlink-agent.exe run --userspace${flags}`,
-    ];
-  }
   return [
     '# build the agent from the repository (Go 1.22+): cd networking-agent && go build -o nexlink-agent ./cmd/nexlink-agent',
     `./nexlink-agent enroll --server ${server}${flags}`,
     `./nexlink-agent run --userspace${flags}`,
   ];
+}
+
+/**
+ * One line for Windows PowerShell: the token goes into an environment
+ * variable of that shell only; /join.ps1 downloads the agent, enrolls and
+ * starts the userspace tunnel.
+ */
+function joinLine(token, deviceId) {
+  return `$env:NEXLINK_ENROLLMENT_TOKEN='${token}'; irm '${window.location.origin}/join.ps1?device=${deviceId}' | iex`;
+}
+
+// navigator.clipboard exists only on https/localhost; a second PC opens the
+// portal over plain http on a LAN address, so fall back to execCommand.
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+}
+
+function CopyButton({ text, label, className = '' }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      variant="white"
+      className={className}
+      onClick={async () => {
+        await copyText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      }}
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? 'copied' : label}
+    </Button>
+  );
 }
 
 /** Waits for the agent to complete enrollment — the only thing that makes a PC "registered". */
@@ -87,8 +119,6 @@ export default function SetupPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
-  const [copied, setCopied] = useState(false);
-
   useEffect(() => {
     const p = guessPlatform();
     setPlatform(p);
@@ -135,41 +165,32 @@ export default function SetupPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          <Card label={`step 2 · run the agent on this pc${result.createdNetwork ? ` · new network ${result.network.name} (${result.network.cidr})` : ` · network ${result.network.name}`}`}>
-            <div className="rounded-2xl bg-lime p-4 text-ink">
-              <div className="label !text-ink/60 mb-2">
-                one-time token · {secondsLeft > 0 ? `expires in ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}` : 'expired — register again'}
-              </div>
-              <div className="break-all font-mono text-sm">{result.enrollment.token}</div>
-            </div>
-            <Button
-              variant="white"
-              className="mt-3 w-full"
-              onClick={async () => {
-                await navigator.clipboard.writeText(result.enrollment.token);
-                setCopied(true);
-              }}
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? 'copied' : 'copy token'}
-            </Button>
-            {platform === 'windows' && (
-              <a
-                href="/downloads/nexlink-agent.exe"
-                download
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-semibold text-ink hover:bg-white"
-              >
-                <Download className="h-4 w-4" /> download agent for Windows (nexlink-agent.exe)
-              </a>
-            )}
-            <pre className="mt-4 overflow-x-auto rounded-2xl border border-charcoal bg-ink p-4 font-mono text-xs leading-relaxed text-lime scrollbar-thin">
-              {commandsFor(platform, server, host).join('\n')}
-            </pre>
-            <p className="mt-3 text-xs text-mid">
-              paste the token when <span className="font-mono text-white">enroll</span> asks for it. the agent makes its own keys — private keys never leave this pc.
-              <span className="font-mono text-white"> run --userspace</span> carries the WireGuard tunnel inside the agent: no WireGuard app and no admin rights needed.
-              keep that window open (or install it as a service). if Windows asks about network access, allow it on private networks.
-            </p>
-          </Card>
+          {platform === 'windows' ? (
+            <Card label={`step 2 · connect this pc${result.createdNetwork ? ` · new network ${result.network.name} (${result.network.cidr})` : ` · network ${result.network.name}`}`}>
+              <ol className="mb-4 space-y-1 text-sm text-white/80">
+                <li><span className="font-mono text-lime">1</span>&nbsp; open <b className="text-white">PowerShell</b> (Start → type powershell → Enter)</li>
+                <li><span className="font-mono text-lime">2</span>&nbsp; paste this line and press <b className="text-white">Enter</b></li>
+                <li><span className="font-mono text-lime">3</span>&nbsp; if Windows asks about network access, click <b className="text-white">Allow</b> — keep the window open</li>
+              </ol>
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-2xl border border-charcoal bg-ink p-4 font-mono text-xs leading-relaxed text-lime scrollbar-thin">
+                {joinLine(result.enrollment.token, result.device.id)}
+              </pre>
+              <CopyButton text={joinLine(result.enrollment.token, result.device.id)} label="copy command" className="mt-3 w-full" />
+              <p className="mt-3 text-xs text-mid">
+                {secondsLeft > 0 ? `valid for ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')} · ` : 'expired — register again · '}
+                sets up the agent, creates this pc&apos;s keys locally, joins the network and starts the encrypted tunnel. no WireGuard app, no admin rights.
+              </p>
+            </Card>
+          ) : (
+            <Card label={`step 2 · run the agent on this pc · network ${result.network.name}`}>
+              <div className="break-all rounded-2xl bg-lime p-4 font-mono text-sm text-ink">{result.enrollment.token}</div>
+              <CopyButton text={result.enrollment.token} label="copy token" className="mt-3 w-full" />
+              <pre className="mt-4 overflow-x-auto rounded-2xl border border-charcoal bg-ink p-4 font-mono text-xs leading-relaxed text-lime scrollbar-thin">
+                {unixCommands(server, host).join('\n')}
+              </pre>
+              <p className="mt-3 text-xs text-mid">paste the token when enroll asks for it; keep the run window open.</p>
+            </Card>
+          )}
           <WaitForAgent deviceId={result.device.id} />
         </div>
       )}

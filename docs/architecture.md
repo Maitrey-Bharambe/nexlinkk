@@ -35,6 +35,14 @@
 * **Agent** is the only component that touches the host. It is read-only by default; changing the WireGuard
   interface requires `NEXLINK_ENABLE_PRIVILEGED=true` on that host *and* an approved command or an explicit
   `nexlink-agent apply`.
+* **Two ways to run the data plane.** With the WireGuard app installed, the agent reads (and, if privileged,
+  applies) the OS interface. With `run --userspace`, the agent runs wireguard-go with an in-process network
+  stack: peers are synced from the control plane and probes/approved tests go through the tunnel, with no
+  VPN app and no Administrator rights. It carries NexLink traffic only, not other applications.
+* **Agent console.** The agent tees its own log lines (Info and above, secrets redacted) to a signed
+  `POST /agent/events`; the control plane stores them with a TTL and pushes them live to the device page.
+* **Access from the LAN.** With `CORS_ALLOW_PRIVATE_LAN=true` the console can be opened from another PC on a
+  private address (`http://192.168.x.y:3000`), which also serves the Windows agent download.
 
 ## Five layers of "is it connected?"
 
@@ -70,6 +78,35 @@ OBSERVE (detector, every 30 s) → CLASSIFY (category) → GATHER EVIDENCE (read
 ```
 
 Incidents are `resolved` only by the detector observing the condition cleared. A manual close is `closed`.
+
+## Protocol simulation (`/simulation`)
+
+An SVG replay of the two-PC tunnel for teaching and demos. `frontend/features/simulation/engine.js`
+turns a scenario into a deterministic timeline of packets, log lines and state changes that follows
+the real protocol step by step:
+
+1. **Enrollment** — `POST /agent/enroll` with the one-time token, both public keys and a proof signature; reply assigns the virtual IP.
+2. **Peer config** — signed `GET /agent/config`; reply carries the peer's public key, `allowedIPs` (/32) and endpoint.
+3. **Handshake** — Noise_IKpsk2: Handshake Initiation (type 1, 148 B) and Response (type 2, 92 B), then the initiator's first Transport Data (keepalive, 32 B).
+4. **Encrypted traffic** — TCP probes to the peer's tunnel address (`:7946`) inside Transport Data messages (16 B header + padded payload + 16 B tag).
+5. **Telemetry** — signed `POST /agent/telemetry`; only then does the server mark the link *connected*.
+
+Scenarios: normal, 30 % loss (→ *degraded*), peer offline (handshake retried every 5 s, link never
+*connected*, incident raised), control plane down (telemetry fails, the tunnel keeps working) and
+revocation (`403 DEVICE_REVOKED`, peer removed from the other side's config).
+
+The scene (`features/simulation/SimulationCanvas.js`) is hand-built SVG: two laptops whose screens
+show the agent (`nexlink-agent run --userspace`, interface `nexlink-userspace`, virtual IP), a
+rack-style control-plane server, the Wi-Fi gateway the UDP datagrams cross, the WireGuard tunnel
+drawn as a glowing conduit, and packet capsules tagged by type (`HTTP`, `WG-INIT`, `WG-RESP`,
+`WG-DATA`, `KEEPALIVE`) that travel along their route; lost datagrams burst at the gateway. A dimmed
+circuit-board image (`public/simulation-bg.jpg`) sits behind a grid overlay. The replay clock is
+wall-clock based, so it keeps real speed even when the browser throttles animation frames.
+
+The canvas separates the PCs' session state (*tunnel up* after the handshake) from the server's
+evidence-based link state, mirroring the rule used everywhere else. Every packet is labelled
+**simulated**; when two enrolled devices are selected, their real names, virtual IPs and reported
+endpoints are used, and a side panel shows the link state their agents actually report.
 
 ## MongoDB in place of PostgreSQL
 

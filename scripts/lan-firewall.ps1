@@ -1,5 +1,5 @@
 <#
-  NexLink LAN setup — run in an ADMINISTRATOR PowerShell.
+  NexLink LAN setup - run in an ADMINISTRATOR PowerShell.
 
   On the PC that runs the portal (PC-1):
       .\scripts\lan-firewall.ps1 -Server

@@ -55,9 +55,10 @@ failures, and run **approved** remote actions from a web console.
 | 🌐 | **Private networks** | Pick an IPv4 range; NexLink validates it, prevents overlaps and hands every device a unique virtual address. |
 | 🪪 | **Cryptographic device identity** | Each PC generates its own Ed25519 identity. One-time enrollment tokens, signed requests, instant revocation. |
 | 🔐 | **WireGuard data plane** | Devices talk directly over encrypted UDP. The agent can export a ready-to-import tunnel file for the WireGuard app. |
-| 🖧 | **Second PC in one minute** | Open the portal from any PC on the same Wi-Fi, download the agent, enroll — `run --userspace` carries the WireGuard tunnel inside the agent: no WireGuard app, no admin rights. |
+| 🖧 | **Second PC in one minute** | Open the portal from any PC on the same Wi-Fi, click **register**, paste one PowerShell line — `run --userspace` carries the WireGuard tunnel inside the agent: no WireGuard app, no admin rights. |
 | 💓 | **Live, honest health** | Agent liveness, interface state and tunnel handshakes are tracked separately; RTT, jitter and loss are measured through the tunnel. |
 | 🕸️ | **Interactive topology** | A live map that tells *configured* links apart from links WireGuard has actually confirmed. |
+| 🎬 | **Protocol simulation** | An animated replay of the two-PC tunnel — enrollment, peer config, the WireGuard handshake (148 B / 92 B), encrypted probes and telemetry — with failure scenarios (packet loss, peer offline, control plane down, revocation), a packet inspector and the real link state of your own devices alongside. |
 | 🩺 | **Automatic diagnostics** | Incidents are detected from real observations; read-only tools collect evidence; diagnosis by rules or AI. |
 | 🤖 | **AI with guardrails** | Groq-powered diagnosis must cite collected evidence and can only propose allowlisted actions. |
 | ✅ | **Approve, execute, verify** | Every action needs a human yes, runs on the agent, and is verified from fresh measurements. |
@@ -326,12 +327,11 @@ Set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `control-plane/.env`. Only
 <details>
 <summary>🔗 Connect two PCs over WireGuard</summary>
 
-On PC-2 (same Wi-Fi), open `http://<PC-1 LAN IP>:3000` → **register this pc** → download the agent, then:
+On PC-2 (same Wi-Fi), open `http://<PC-1 LAN IP>:3000` → **register this pc** → **copy command**, and paste it into PowerShell:
 ```powershell
-.\nexlink-agent.exe enroll --server http://<PC-1 LAN IP>:4000 --allow-http
-.\nexlink-agent.exe run --userspace --allow-http
+$env:NEXLINK_ENROLLMENT_TOKEN='nxe_…'; irm 'http://<PC-1 LAN IP>:3000/join.ps1?device=<id>' | iex
 ```
-On PC-1 (Administrator, once): `.\scripts\lan-firewall.ps1 -Server -Agent`. Full runbook: **[docs/two-pc-test.md](docs/two-pc-test.md)**.
+That one line downloads the agent, creates the PC's keys locally, enrolls and starts the userspace tunnel. On PC-1 (Administrator, once): `.\scripts\lan-firewall.ps1 -Server -Agent`. Full runbook: **[docs/two-pc-test.md](docs/two-pc-test.md)**.
 `nexlink-agent export-config` writes the tunnel file for the WireGuard app; `nexlink-agent doctor` tells you exactly what is missing.
 </details>
 

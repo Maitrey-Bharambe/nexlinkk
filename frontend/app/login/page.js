@@ -64,7 +64,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center rounded-blob border border-charcoal bg-ink-2 p-8">
+      <div className="flex items-center justify-center rounded-blob border border-charcoal bg-ink-2/75 p-8 backdrop-blur-md">
         <form onSubmit={submit} className="w-full max-w-sm space-y-5">
           <div className="mb-6">
             <Image src="/logo-full.png" alt="NexLink — secure networks, intelligent operations" width={900} height={717} priority className="mb-6 h-auto w-52" />

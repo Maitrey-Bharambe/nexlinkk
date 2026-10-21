@@ -20,7 +20,7 @@ Agent API: Ed25519 request signatures (see network-protocols.md); cookies are ig
 | GET `/networks/:id` | `networks:read` | devices with health, peer links |
 | DELETE `/networks/:id` | `networks:delete` | 409 `NETWORK_NOT_EMPTY` while devices active/pending |
 | POST `/networks/:id/collaborators` | owner/admin | `{email, role: operator|viewer}` |
-| GET `/topology?networkId=` | `networks:read` | nodes + edges (`control`, `membership`, `peer`) with observed state |
+| GET `/topology?networkId=` | `networks:read` | nodes + edges (`control`, `membership`, `peer`) with observed state; device nodes carry `address` (virtual IP) and `endpoint` (first agent-reported `ip:port`, or null) |
 | GET `/devices?networkId=&status=` | `devices:read` | |
 | POST `/devices/enrollment-requests` | `devices:enroll` | `{networkId, name}` → token returned once, `Cache-Control: no-store` |
 | GET `/devices/:id` | `devices:read` | health, vpn, peer links, last 20 heartbeats, enrollment status |

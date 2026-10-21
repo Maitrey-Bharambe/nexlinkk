@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, CheckSquare, Cpu, LogOut, Network, Plus, ScrollText, Share2, Stethoscope } from 'lucide-react';
+import { Activity, CheckSquare, Cpu, LogOut, Network, Plus, Radio, ScrollText, Share2, Stethoscope } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { useLiveStatus } from '@/hooks/useApi';
 import { Loading } from './ui';
@@ -13,6 +13,7 @@ const NAV = [
   { href: '/networks', label: 'networks', icon: Network },
   { href: '/devices', label: 'devices', icon: Cpu },
   { href: '/topology', label: 'topology', icon: Share2 },
+  { href: '/simulation', label: 'simulation', icon: Radio },
   { href: '/diagnostics', label: 'diagnostics', icon: Stethoscope },
   { href: '/approvals', label: 'approvals', icon: CheckSquare },
   { href: '/audit', label: 'audit log', icon: ScrollText, perm: 'audit:read' },
@@ -38,7 +39,7 @@ export default function Shell({ children }) {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-charcoal/70 p-4 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-charcoal/70 bg-ink/70 p-4 backdrop-blur-md md:flex">
         <Link href="/" className="mb-8 flex items-center gap-2 px-3 pt-2">
           <Image src="/logo-mark.png" alt="NexLink" width={40} height={40} priority className="h-10 w-10" />
           <span className="text-xl font-bold tracking-tight">nexlink</span>

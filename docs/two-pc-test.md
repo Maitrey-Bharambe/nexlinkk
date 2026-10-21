@@ -40,15 +40,11 @@ For a system-wide VPN adapter use the full path in sections 0–5 below.
 
 1. In a browser open `http://192.168.0.105:3000` and sign in with the **same account** as PC-1
    (so both devices land in the same network).
-2. **register this pc** → name it → **download agent for Windows**. If SmartScreen warns:
-   *More info → Run anyway*.
-3. PowerShell (normal, not admin), paste the token when asked:
-   ```powershell
-   cd $HOME\Downloads
-   .\nexlink-agent.exe enroll --server http://192.168.0.105:4000 --allow-http
-   .\nexlink-agent.exe run --userspace --allow-http
-   ```
-   When Windows asks about network access, allow it on **private** networks.
+2. **register this pc** → name it → **register** → **copy command**.
+3. Open PowerShell (normal, not admin), paste the line, press Enter. It downloads the agent to
+   `%LOCALAPPDATA%\NexLink`, enrolls (keys are created on PC-2) and starts the userspace tunnel.
+   When Windows asks about network access, click **Allow**. Keep the window open; pasting the same
+   line again later reconnects without enrolling again.
 
 **Verify (from either PC's browser):** the setup page turns lime ("PC-2 is in"); the device page's
 agent console shows `tunnel peers updated` then `tunnel probe … rtt_ms=…`; **topology** shows the link
