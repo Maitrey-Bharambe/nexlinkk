@@ -14,7 +14,7 @@ WireGuard peer configuration through `wgctrl`.
 go mod tidy                                   # resolves golang.zx2c4.com/wireguard/wgctrl
 go build -o bin/nexlink-agent ./cmd/nexlink-agent
 go test ./...                                 # unit tests: loopback sockets only, no host changes
-NEXLINK_IT_SERVER=http://127.0.0.1:4000 NEXLINK_IT_TOKEN=nxe_... go test -tags integration ./tests/
+NEXLINK_IT_SERVER=http://127.0.0.1:3000 NEXLINK_IT_TOKEN=nxe_... go test -tags integration ./tests/
 ```
 
 ## Use
@@ -23,6 +23,10 @@ NEXLINK_IT_SERVER=http://127.0.0.1:4000 NEXLINK_IT_TOKEN=nxe_... go test -tags i
 nexlink-agent enroll --server https://cp.example.com     # paste token at the prompt (or NEXLINK_ENROLLMENT_TOKEN)
 nexlink-agent run                                       # safe mode: read-only
 nexlink-agent run --userspace --listen-port 51820      # own userspace WireGuard tunnel (wireguard-go): no WireGuard app, no admin
+nexlink-agent run --userspace --share rdp,ssh          # also share Remote Desktop + SSH with tunnel peers (nothing is shared by default)
+nexlink-agent session --list                            # devices in your network, online/direct|relay, what they share
+nexlink-agent session pc-2 rdp                          # remote session through the tunnel (starts mstsc on Windows)
+nexlink-agent session 10.42.0.3 ssh --user me           # ssh; `http` opens the browser, others print 127.0.0.1:<port>
 nexlink-agent status                                    # local inspection, no network calls
 nexlink-agent probe --target 10.42.0.3:22 --count 5     # bounded TCP probe
 nexlink-agent doctor                                    # read-only preflight: control plane, WireGuard, handshakes, tunnel probe
@@ -45,7 +49,26 @@ NEXLINK_ENABLE_PRIVILEGED=true nexlink-agent apply             # explicitly appl
 | `NEXLINK_ALLOW_HTTP` | `false` | allow plain http to a non-loopback server (lab only) |
 | `NEXLINK_PROBE_TCP_PORT` | 7946 | TCP port each agent answers on (tunnel address only) for peer probes |
 | `NEXLINK_LISTEN_PORT` | 51820 | WireGuard UDP port; advertised to peers and written by `export-config` |
-| `NEXLINK_USERSPACE` | `false` | same as `--userspace`: the agent runs the tunnel itself; it carries NexLink traffic (handshakes, probes, approved tests), not other apps |
+| `NEXLINK_USERSPACE` | `false` | same as `--userspace`: the agent runs the tunnel itself; it carries NexLink traffic (handshakes, probes, approved tests, remote sessions), not other apps |
+| `NEXLINK_RELAY` | `true` | userspace: fall back to the encrypted relay when a peer is not directly reachable (`--relay=false` to disable) |
+| `NEXLINK_SHARE` | — | same as `--share`: local services peers may open sessions to (`rdp`, `ssh`, `vnc`, `http:3000`, `tcp:8080`) |
+
+## Paths: direct first, relay when needed
+
+In userspace mode every peer is tried **directly** over UDP first (same LAN, or a reachable public endpoint).
+If no WireGuard handshake happens within 20 s, the agent switches that peer to `relay:<device id>`: WireGuard
+packets travel inside the agent's signed WebSocket to the portal, which forwards them to the peer — only
+within the same network, rate-limited, and dropped the moment a device is revoked. The relay sees ciphertext
+only; the Noise handshake and every packet stay end-to-end between the two agents. `--force-relay` skips the
+direct attempt (demos, or networks known to block UDP).
+
+## Remote sessions
+
+`--share` opens listeners on the device's **tunnel address only** (inside the agent's own network stack), each
+forwarding to `127.0.0.1:<port>` on that host. `nexlink-agent session` talks to the running agent through a
+localhost API protected by a random token in the user's profile, gets a local port that tunnels to the peer,
+and starts the client. Both agents log every session (opened, closed, duration, bytes); the lines appear in
+each device's agent console in the portal.
 
 ## Background service (Windows)
 

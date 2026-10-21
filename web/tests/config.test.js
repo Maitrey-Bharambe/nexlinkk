@@ -3,19 +3,21 @@
 // Category: unit-tested behaviour.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadConfig } = require('../src/config/env');
+const { loadConfig } = require('../server/config/env');
+const { resolveMongoUri } = require('../server/database/devMongo');
 
-test('LAN origins are only accepted when CORS_ALLOW_PRIVATE_LAN is on', () => {
-  const strict = loadConfig({ CORS_ORIGINS: 'http://localhost:3000', CORS_ALLOW_PRIVATE_LAN: 'false' });
-  assert.equal(strict.isAllowedOrigin('http://localhost:3000'), true);
-  assert.equal(strict.isAllowedOrigin(undefined), true, 'same-origin / non-browser requests');
-  assert.equal(strict.isAllowedOrigin('http://192.168.0.105:3000'), false);
+test('one port by default, PUBLIC_URL normalised, relay on unless disabled', () => {
+  const c = loadConfig({ PUBLIC_URL: 'https://nexlink.example.com/' });
+  assert.equal(c.PORT, 3000);
+  assert.equal(c.PUBLIC_URL, 'https://nexlink.example.com');
+  assert.equal(c.RELAY_ENABLED, true);
+  assert.equal(loadConfig({ RELAY_ENABLED: 'false' }).RELAY_ENABLED, false);
+  assert.throws(() => loadConfig({ PUBLIC_URL: 'not a url' }), /PUBLIC_URL/);
+});
 
-  const lan = loadConfig({ CORS_ORIGINS: 'http://localhost:3000', CORS_ALLOW_PRIVATE_LAN: 'true' });
-  for (const ok of ['http://192.168.0.105:3000', 'http://10.1.2.3:3000', 'http://172.20.0.5:3000']) {
-    assert.equal(lan.isAllowedOrigin(ok), true, ok);
-  }
-  for (const bad of ['http://8.8.8.8:3000', 'http://192.168.0.105.evil.com:3000', 'https://example.com', 'http://172.32.0.1:3000', 'http://1921680105:3000']) {
-    assert.equal(lan.isAllowedOrigin(bad), false, bad);
-  }
+test('production never guesses a database', async () => {
+  const prod = loadConfig({ NODE_ENV: 'production', MONGODB_URI: '' });
+  await assert.rejects(() => resolveMongoUri({ ...prod, MONGODB_URI: undefined }), /MONGODB_URI is required/);
+  const explicit = await resolveMongoUri(loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://db.internal/nexlink' }));
+  assert.equal(explicit.uri, 'mongodb://db.internal/nexlink');
 });

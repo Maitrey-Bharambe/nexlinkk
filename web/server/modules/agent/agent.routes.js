@@ -174,8 +174,13 @@ function agentRouter({ config, limits }) {
               ...(p.endpoints?.reflexiveAddress && p.vpn?.listenPort
                 ? [{ endpoint: `${p.endpoints.reflexiveAddress.replace(/^::ffff:/, '')}:${p.vpn.listenPort}`, kind: 'reflexive_guess' }]
                 : []),
+              // Always works, from any network: WireGuard ciphertext through
+              // this server's relay. Agents try direct candidates first.
+              ...(config.RELAY_ENABLED ? [{ endpoint: `relay:${p._id}`, kind: 'relay' }] : []),
             ],
             persistentKeepaliveSeconds: PERSISTENT_KEEPALIVE_SEC,
+            // What the peer's owner shares for remote sessions (rdp, ssh, ...).
+            services: (p.services || []).map(({ name, port }) => ({ name, port })),
           })),
       });
     }),

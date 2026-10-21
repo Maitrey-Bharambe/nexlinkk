@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Cpu, Plus } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
-import { Button, Empty, ErrorState, Loading, PageHeader } from '@/components/ui';
+import { Button, Empty, ErrorState, Loading, PageHeader, Segmented } from '@/components/ui';
 import EnrollDialog from '@/features/devices/EnrollDialog';
 import DeviceTable from '@/features/devices/DeviceTable';
 
@@ -31,16 +31,13 @@ export default function DevicesPage() {
       </PageHeader>
       <EnrollDialog open={open} onClose={() => setOpen(false)} networks={networks} onCreated={reload} />
 
-      <div className="mb-5 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-full px-4 py-1.5 font-mono text-xs uppercase tracking-wider ${filter === f ? 'bg-white text-ink' : 'border border-charcoal text-mid hover:text-white'}`}
-          >
-            {f.replace('_', ' ')} {data && f !== 'all' ? `· ${data.filter((d) => d.health?.status === f).length}` : ''}
-          </button>
-        ))}
+      <div className="mb-5 overflow-x-auto scrollbar-thin">
+        <Segmented
+          label="Filter devices by health"
+          value={filter}
+          onChange={setFilter}
+          options={FILTERS.map((f) => [f, `${f.replace('_', ' ')}${data && f !== 'all' ? ` · ${data.filter((d) => d.health?.status === f).length}` : ''}`])}
+        />
       </div>
 
       <ErrorState error={error} onRetry={reload} />

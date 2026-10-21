@@ -45,11 +45,17 @@ func hexToBase64(h string) string {
 
 // NewUserspaceDevice starts a wireguard-go device whose tunnel address is tunnelIP.
 func NewUserspaceDevice(name string, privateKey wgtypes.Key, tunnelIP netip.Addr, listenPort int) (*UserspaceDevice, error) {
+	return NewUserspaceDeviceWithBind(name, privateKey, tunnelIP, listenPort, conn.NewStdNetBind())
+}
+
+// NewUserspaceDeviceWithBind is NewUserspaceDevice with a custom transport,
+// e.g. a MuxBind that can also reach peers through the relay.
+func NewUserspaceDeviceWithBind(name string, privateKey wgtypes.Key, tunnelIP netip.Addr, listenPort int, bind conn.Bind) (*UserspaceDevice, error) {
 	tunDev, tnet, err := netstack.CreateNetTUN([]netip.Addr{tunnelIP}, nil, 1420)
 	if err != nil {
 		return nil, fmt.Errorf("netstack: %w", err)
 	}
-	dev := device.NewDevice(tunDev, conn.NewStdNetBind(), device.NewLogger(device.LogLevelError, "["+name+"] "))
+	dev := device.NewDevice(tunDev, bind, device.NewLogger(device.LogLevelError, "["+name+"] "))
 	if err := dev.IpcSet(fmt.Sprintf("private_key=%s\nlisten_port=%d\n", hexKey(privateKey), listenPort)); err != nil {
 		dev.Close()
 		return nil, fmt.Errorf("configure %s: %w", name, err)

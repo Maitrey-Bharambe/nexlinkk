@@ -5,21 +5,27 @@ import { Ban, Unlink } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
 import { Button, Card, ErrorState, Field, Freshness, KV, Loading, Modal, PageHeader, inputCls } from '@/components/ui';
-import StatusBadge from '@/components/StatusBadge';
+import StatusBadge, { toneOf } from '@/components/StatusBadge';
 import { del, post } from '@/lib/api';
 import { fmtMeasurement, fmtTime, humanize, timeAgo } from '@/lib/format';
 import AgentConsole from '@/features/devices/AgentConsole';
 import DeviceActions from '@/features/devices/DeviceActions';
+import AiAnalysis from '@/features/devices/AiAnalysis';
+import RemoteSession from '@/features/devices/RemoteSession';
 
-function SignalCard({ title, state, children, tone }) {
+const RAIL = { good: 'bg-lime', progress: 'bg-lime/40', warn: 'bg-amber', bad: 'bg-coral', info: 'bg-white/50', none: 'bg-charcoal' };
+
+/** One link of the signal chain. Each signal is independent evidence. */
+function SignalCard({ title, state, children }) {
   return (
-    <Card tone={tone}>
-      <div className="flex items-center justify-between">
-        <div className={`label ${tone === 'lime' || tone === 'white' ? '!text-ink/60' : ''}`}>{title}</div>
+    <div className="relative bg-ink-2 p-5">
+      <span aria-hidden className={`absolute inset-x-0 top-0 h-[2px] ${RAIL[toneOf(state)]}`} />
+      <div className="flex items-center justify-between gap-3">
+        <div className="label">{title}</div>
         <StatusBadge state={state} />
       </div>
-      <div className="mt-6 space-y-1 text-sm">{children}</div>
-    </Card>
+      <div className="mt-5 space-y-1 text-sm">{children}</div>
+    </div>
   );
 }
 
@@ -99,17 +105,17 @@ export default function DeviceDetail({ params }) {
       <ErrorState error={actionError} />
 
       {h?.reasons?.length > 0 && (
-        <div className="mb-4 rounded-2xl border border-charcoal bg-ink-2 px-5 py-3 text-sm">
+        <div className="mb-4 rounded-panel border border-line bg-ink-2 px-5 py-3 text-sm">
           <span className="label mr-2">why</span>
           {h.reasons.join(' · ')}
         </div>
       )}
 
       {/* Three independent signals: control channel, interface, tunnels. */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <SignalCard title="1 · agent ↔ control plane" state={h?.agent?.status || 'unknown'} tone={h?.agent?.status === 'online' ? 'lime' : 'default'}>
-          <div>last heartbeat <b>{timeAgo(d.lastHeartbeatAt, now) || 'never'}</b></div>
-          <div className="text-xs opacity-70">proves the agent can reach us over https. says nothing about the tunnel.</div>
+      <div className="grid gap-px overflow-hidden rounded-panel border border-line bg-line md:grid-cols-3">
+        <SignalCard title="1 · agent ↔ control plane" state={h?.agent?.status || 'unknown'}>
+          <div>last heartbeat <b className="font-mono font-medium">{timeAgo(d.lastHeartbeatAt, now) || 'never'}</b></div>
+          <div className="text-xs text-mid">proves the agent can reach us over https. says nothing about the tunnel.</div>
         </SignalCard>
         <SignalCard title="2 · wireguard interface" state={h?.vpn?.state || 'unknown'}>
           <div>{d.vpn?.interfaceName || 'no interface reported'} {d.vpn?.listenPort ? `· udp/${d.vpn.listenPort}` : ''}</div>
@@ -124,7 +130,9 @@ export default function DeviceDetail({ params }) {
         </SignalCard>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+      <AiAnalysis deviceId={deviceId} canRun={can('incidents:diagnose')} now={now} />
+
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <Card label="identity & membership">
           <KV k="enrollment"><StatusBadge state={d.enrollmentState} /></KV>
           <KV k="virtual ip" mono>{d.membership ? `${d.membership.address} (${d.membership.status})` : 'unassigned'}</KV>
@@ -132,6 +140,7 @@ export default function DeviceDetail({ params }) {
           <KV k="wireguard key" mono>{d.wireguardFingerprint ? `${d.wireguardFingerprint.slice(0, 22)}…` : '—'}</KV>
           <KV k="agent" mono>{d.agentVersion || '—'} · {d.platform || '—'}</KV>
           <KV k="capabilities" mono>{d.capabilities.length ? d.capabilities.join(', ') : '—'}</KV>
+          <KV k="shares" mono>{d.services?.length ? d.services.map((s) => `${s.name}:${s.port}`).join(', ') : 'nothing'}</KV>
           <KV k="endpoints" mono>{d.endpoints?.reported?.length ? d.endpoints.reported.join(', ') : 'none reported'}</KV>
           <KV k="enrolled">{fmtTime(d.enrolledAt)}</KV>
           {d.enrollmentState === 'pending' && <KV k="token">{d.enrollment.state}{d.enrollment.expiresAt ? ` · until ${new Date(d.enrollment.expiresAt).toLocaleTimeString()}` : ''}</KV>}
@@ -159,12 +168,15 @@ export default function DeviceDetail({ params }) {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <AgentConsole deviceId={deviceId} />
-        <DeviceActions device={d} canRequest={can('actions:request')} canDecide={can('actions:approve:low')} />
+        <div className="space-y-4">
+          <RemoteSession device={d} now={now} />
+          <DeviceActions device={d} canRequest={can('actions:request')} canDecide={can('actions:approve:low')} />
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         <Card label="measurements (latest 25)">
           {!measurements?.length ? (
             <p className="text-sm text-mid">not measured yet.</p>

@@ -317,7 +317,7 @@ export default function SimulationPage() {
             {view.lastPacket ? (
               <div className="space-y-1.5">
                 <div className="font-mono text-xs text-lime">
-                  {SRC_LABEL[view.lastPacket.from]} → {SRC_LABEL[view.lastPacket.to]} · {view.lastPacket.channel === 'tunnel' ? 'UDP 51820 (encrypted)' : 'HTTP :4000 (signed)'}
+                  {SRC_LABEL[view.lastPacket.from]} → {SRC_LABEL[view.lastPacket.to]} · {view.lastPacket.channel === 'tunnel' ? 'UDP 51820 (encrypted)' : 'HTTP :3000 (signed)'}
                 </div>
                 {(view.lastPacket.fields || []).map(([k, v]) => (
                   <div key={k} className="grid grid-cols-[120px_1fr] gap-2 font-mono text-[11px]">

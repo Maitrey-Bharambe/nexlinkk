@@ -56,7 +56,7 @@ type Inspector interface {
 type DesiredPeer struct {
 	PublicKey           string
 	AllowedIPs          []string
-	Endpoint            string // ip:port literal or ""
+	Endpoint            string // ip:port literal, relay:<device id>, or ""
 	PersistentKeepalive time.Duration
 }
 
@@ -107,10 +107,10 @@ func ValidateDesired(cfg DesiredConfig) error {
 				return errors.New("desired config: allowed IP " + a + " is not a /32 inside " + cfg.NetworkCIDR)
 			}
 		}
-		if p.Endpoint != "" {
+		if p.Endpoint != "" && !IsRelayEndpoint(p.Endpoint) {
 			host, _, err := net.SplitHostPort(p.Endpoint)
 			if err != nil || net.ParseIP(host) == nil {
-				return errors.New("desired config: endpoint must be an ip:port literal")
+				return errors.New("desired config: endpoint must be an ip:port literal or relay:<device id>")
 			}
 		}
 	}

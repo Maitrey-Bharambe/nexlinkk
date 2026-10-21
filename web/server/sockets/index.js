@@ -13,8 +13,9 @@ const { visibleNetworkIds } = require('../modules/networks/scope');
 function attachRealtime(httpServer, { config, logger }) {
   const io = new Server(httpServer, {
     path: '/socket.io',
-    cors: { origin: (origin, cb) => cb(null, config.isAllowedOrigin(origin)), credentials: true },
     serveClient: false,
+    // Other upgrades on this port (agent relay, Next.js HMR) are not ours.
+    destroyUpgrade: false,
   });
 
   io.use(async (socket, next) => {

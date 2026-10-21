@@ -98,7 +98,8 @@ func (a *wgctrlApplier) Apply(ctx context.Context, iface string, cfg DesiredConf
 			_, n, _ := net.ParseCIDR(s)
 			pc.AllowedIPs = append(pc.AllowedIPs, *n)
 		}
-		if p.Endpoint != "" {
+		// Kernel interfaces cannot use the relay; only userspace mode can.
+		if p.Endpoint != "" && !IsRelayEndpoint(p.Endpoint) {
 			if pc.Endpoint, err = net.ResolveUDPAddr("udp", p.Endpoint); err != nil {
 				return fmt.Errorf("peer endpoint: %w", err)
 			}

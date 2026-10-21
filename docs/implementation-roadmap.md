@@ -16,8 +16,8 @@
 
 | Category | What | Where |
 |---|---|---|
-| Unit-tested behaviour | CIDR math, health thresholds, Go probes/policy/validation/identity | `control-plane/tests/ipv4.test.js`, parts of `telemetry.test.js`, `networking-agent/internal/**/*_test.go` |
-| Simulated test fixtures | Control-plane integration tests with an in-process agent using real Ed25519/X25519 keys and the real signed protocol; peer handshake data is injected (labelled `wgctrl` in tests to exercise the server path) | `control-plane/tests/*.test.js` |
+| Unit-tested behaviour | CIDR math, health thresholds, Go probes/policy/validation/identity | `web/tests/ipv4.test.js`, parts of `telemetry.test.js`, `networking-agent/internal/**/*_test.go` |
+| Simulated test fixtures | Control-plane integration tests with an in-process agent using real Ed25519/X25519 keys and the real signed protocol; peer handshake data is injected (labelled `wgctrl` in tests to exercise the server path) | `web/tests/*.test.js` |
 | Agent ↔ control plane on one machine | Real Go agent against a running control plane, interface absent | `networking-agent/tests/integration_test.go` (`-tags integration`) — ✅ passed |
 | Actual WireGuard protocol, one host | Two enrolled agents, two wireguard-go devices over loopback UDP, live control plane | `nexlink-agent lab` + `internal/wireguard/userspace_test.go` — ✅ passed |
 | Actual WireGuard protocol over the LAN address | Two agent processes, `run --userspace` on UDP 51820/51821 via 192.168.0.105, live control plane | manual run — ✅ passed |
@@ -31,6 +31,6 @@
    [two-pc-test.md](two-pc-test.md): PC-2 opens the portal by LAN address, downloads the agent,
    `enroll` + `run --userspace` (no admin). Verified on one machine with two agent processes over the LAN
    address; the two-PC run itself is **pending**.
-3. Relay: deploy a UDP relay, implement `request_relay_fallback`, add `path=relay` reporting.
+3. ~~Relay~~ (done: WebSocket relay in the web app, automatic agent fallback, `path=relay` reporting; verified with two real agents on `--force-relay`).
 4. ~~LLM provider~~ (Groq done, live diagnosis verified).
 5. Hardening: TLS deployment guide, agent key storage in OS keychain/TPM, MFA, shared rate-limit store.

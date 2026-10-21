@@ -36,7 +36,7 @@ connectivity never depends on this service.
 3. Start the service: `.venv\Scripts\python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8090`
    (check http://127.0.0.1:8090/healthz shows the groq provider).
 
-Then set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `control-plane/.env` and use **ask ai** on an
+Then set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `web/.env` and use **ask ai** on an
 incident. Only evidence refs, kinds, summaries and timestamps are sent to Groq — never raw evidence data
 (IP addresses, endpoints). Responses that cite unknown evidence, use non-allowlisted actions or add
 confidence scores are rejected, and every proposed action still goes through the policy engine and needs

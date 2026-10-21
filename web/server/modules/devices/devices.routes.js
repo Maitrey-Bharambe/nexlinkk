@@ -8,6 +8,7 @@ const { Heartbeat, Measurement, AgentEvent, MEASUREMENT_TYPES } = require('../..
 const { ProposedAction } = require('../../database/models/incidents');
 const { ACTIONS } = require('../policies/actionRegistry');
 const { requestDeviceAction } = require('../approvals/actions.service');
+const { analyzeDevice } = require('../diagnostics/diagnostics.service');
 const { serializeActions } = require('../incidents/incidents.routes');
 const { Incident } = require('../../database/models/incidents');
 const { AuditEvent } = require('../../database/models/audit');
@@ -129,6 +130,8 @@ function devicesRouter({ config, limits }) {
         ...serializeDevice(device.toObject(), { health: state.health.get(id), membership: state.membershipByDevice.get(id) }),
         vpn: device.vpn,
         endpoints: device.endpoints,
+        relay: req.app.locals.relay?.status(id) || { connected: false },
+        services: device.services || [],
         enrollment,
         peerLinks: state.links
           .filter((l) => l.source === id || l.target === id)
@@ -253,6 +256,20 @@ function devicesRouter({ config, limits }) {
     }),
   );
 
+  // On-demand AI health analysis (Groq via the diagnostic service). Read-only:
+  // the provider gets an empty action allowlist and its output is grounding-checked.
+  r.post(
+    '/devices/:deviceId/analysis',
+    requirePermission('incidents:diagnose'),
+    requireCsrf,
+    limits.sensitive,
+    validate({ params: deviceParams }),
+    ah(async (req, res) => {
+      const { device } = await loadDeviceInScope(req.user, req.valid.params.deviceId);
+      send(res, await analyzeDevice({ device, config, req }));
+    }),
+  );
+
   r.post(
     '/devices/:deviceId/revoke',
     requirePermission('devices:revoke'),
@@ -272,6 +289,7 @@ function devicesRouter({ config, limits }) {
       await Membership.updateMany({ deviceId: device._id, status: 'active' }, { status: 'revoked', endedAt: now });
       await AgentCommand.updateMany({ deviceId: device._id, status: { $in: ['queued', 'delivered'] } }, { status: 'cancelled', completedAt: now });
       await bumpConfigVersion(network._id);
+      req.app.locals.relay?.disconnect(device._id, 'device revoked');
       await audit.record(
         {
           operation: 'device.revoke',

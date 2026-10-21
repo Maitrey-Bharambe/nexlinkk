@@ -9,10 +9,10 @@ import { useNow } from '@/hooks/useApi';
 export default function DeviceTable({ devices, networkNames = {} }) {
   const now = useNow();
   return (
-    <div className="overflow-x-auto rounded-blob border border-charcoal scrollbar-thin">
+    <div className="overflow-x-auto rounded-blob border border-line scrollbar-thin">
       <table className="w-full min-w-[980px] text-left text-sm">
         <thead>
-          <tr className="border-b border-charcoal bg-ink-2">
+          <tr className="border-b border-line bg-ink-2/80">
             {['device', 'status', 'enrollment', 'virtual ip', 'network', 'heartbeat', 'vpn iface', 'last handshake', 'latency'].map((h) => (
               <th key={h} className="label px-4 py-3 font-normal">{h}</th>
             ))}
@@ -20,7 +20,7 @@ export default function DeviceTable({ devices, networkNames = {} }) {
         </thead>
         <tbody>
           {devices.map((d) => (
-            <tr key={d.id} className="border-b border-charcoal/60 last:border-0 hover:bg-ink-2">
+            <tr key={d.id} className="border-b border-line/60 last:border-0 hover:bg-white/[0.02]">
               <td className="px-4 py-3">
                 <Link href={`/devices/${d.id}`} className="font-semibold hover:text-lime">{d.name}</Link>
                 <div className="font-mono text-[11px] text-mid">{shortId(d.id)}</div>
@@ -31,7 +31,7 @@ export default function DeviceTable({ devices, networkNames = {} }) {
               <td className="px-4 py-3"><StatusBadge state={d.enrollmentState} /></td>
               <td className="px-4 py-3 font-mono text-xs">
                 {d.membership ? (
-                  <span className={d.membership.status === 'active' ? 'text-lime' : 'text-mid line-through'}>{d.membership.address}</span>
+                  <span className={d.membership.status === 'active' ? 'text-white' : 'text-mid line-through'}>{d.membership.address}</span>
                 ) : (
                   <span className="text-mid">unassigned</span>
                 )}

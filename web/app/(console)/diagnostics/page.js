@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { FlaskConical, Stethoscope } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
-import { Button, Card, Empty, ErrorState, Field, Loading, Modal, PageHeader, inputCls } from '@/components/ui';
+import { Button, Card, Empty, ErrorState, Field, Loading, Modal, PageHeader, Segmented, inputCls } from '@/components/ui';
 import StatusBadge from '@/components/StatusBadge';
 import { post } from '@/lib/api';
 import { humanize, timeAgo } from '@/lib/format';
@@ -84,9 +84,7 @@ export default function DiagnosticsPage() {
   return (
     <div>
       <PageHeader kicker="detect · gather evidence · propose · verify" title="diagnostics">
-        {['active', 'all'].map((s) => (
-          <button key={s} onClick={() => setScope(s)} className={`rounded-full px-4 py-2 font-mono text-xs uppercase ${scope === s ? 'bg-white text-ink' : 'border border-charcoal text-mid'}`}>{s}</button>
-        ))}
+        <Segmented label="Incident scope" value={scope} onChange={setScope} options={[['active', 'active'], ['all', 'all']]} />
         {can('incidents:create_test') && (
           <Button variant="ghost" onClick={() => setTestOpen(true)}><FlaskConical className="h-4 w-4" /> test event</Button>
         )}
@@ -105,7 +103,7 @@ export default function DiagnosticsPage() {
           </Card>
           <Card label={`read-only tools · ${registry.tools.length}`}>
             <div className="flex flex-wrap gap-1.5">
-              {registry.tools.map((t) => <span key={t.name} title={t.description} className="rounded-full bg-charcoal px-2.5 py-1 font-mono text-[11px]">{t.name}</span>)}
+              {registry.tools.map((t) => <span key={t.name} title={t.description} className="rounded-[6px] border border-line bg-ink-3 px-2 py-1 font-mono text-[11px]">{t.name}</span>)}
             </div>
           </Card>
           <Card label="action allowlist">
@@ -128,16 +126,16 @@ export default function DiagnosticsPage() {
           incidents open only when the detector observes a condition (missed heartbeats, interface down, stale handshake, high loss/latency).
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-blob border border-charcoal scrollbar-thin">
+        <div className="overflow-x-auto rounded-blob border border-line scrollbar-thin">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
-              <tr className="border-b border-charcoal bg-ink-2">
+              <tr className="border-b border-line bg-ink-2">
                 {['incident', 'device', 'category', 'severity', 'detected', 'state'].map((h) => <th key={h} className="label px-4 py-3 font-normal">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {data?.map((i) => (
-                <tr key={i.id} className="border-b border-charcoal/60 last:border-0 hover:bg-ink-2">
+                <tr key={i.id} className="border-b border-line/60 last:border-0 hover:bg-ink-2">
                   <td className="px-4 py-3">
                     <Link href={`/diagnostics/${i.id}`} className="font-semibold hover:text-lime">{i.title}</Link>
                     <div className="font-mono text-[11px] text-mid">{i.id}{i.isTest && <span className="ml-2 rounded bg-white px-1 text-ink">TEST</span>}</div>

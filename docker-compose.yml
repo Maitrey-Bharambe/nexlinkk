@@ -1,12 +1,14 @@
-# Supporting services + control plane for local development.
-# This compose network is NOT evidence of VPN connectivity between physical
-# machines; it only hosts the control plane and its database.
+# NexLink with its database, for a single server you control.
+#
+#   PUBLIC_URL=https://nexlink.example.com docker compose up -d --build
+#
+# Put HTTPS in front (Caddy, nginx, a cloud load balancer) and point
+# PUBLIC_URL at it: invited computers reach the portal, the API and the relay
+# through that one address, from any network.
 services:
   mongo:
     image: mongo:7.0
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:27017:27017"   # loopback only
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -15,36 +17,32 @@ services:
       timeout: 5s
       retries: 5
 
-  control-plane:
-    image: node:22-alpine
-    working_dir: /app
-    command: sh -c "npm ci --omit=dev && node src/server.js"
+  nexlink:
+    build: .
+    restart: unless-stopped
     environment:
-      NODE_ENV: development
       MONGODB_URI: mongodb://mongo:27017/nexlink
-      CORS_ORIGINS: http://localhost:3000
-      PORT: "4000"
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      DIAGNOSTIC_SERVICE_URL: ${DIAGNOSTIC_SERVICE_URL:-}
     ports:
-      - "4000:4000"   # agents on other machines must reach this
-    volumes:
-      - ./control-plane:/app
-      - /app/node_modules
+      - "3000:3000"
     depends_on:
       mongo:
         condition: service_healthy
-    profiles: ["full"]
 
+  # Optional "ask ai" diagnostics (mock provider unless GROQ_API_KEY is set).
   diagnostic-service:
     image: python:3.12-slim
     working_dir: /app
     command: sh -c "pip install -q -r requirements.txt && uvicorn app.api.main:app --host 0.0.0.0 --port 8090"
     environment:
-      NEXLINK_DIAG_PROVIDER: mock
-    ports:
-      - "127.0.0.1:8090:8090"
+      NEXLINK_DIAG_PROVIDER: ${NEXLINK_DIAG_PROVIDER:-mock}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     volumes:
       - ./diagnostic-service:/app
-    profiles: ["full"]
+    profiles: ["ai"]
 
 volumes:
   mongo-data:

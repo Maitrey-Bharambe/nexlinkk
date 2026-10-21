@@ -1,0 +1,14 @@
+**/node_modules
+**/.next
+**/.data
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv
+**/__pycache__
+web/public/downloads
+networking-agent/bin
+control-plane
+.tools
+.git
+docs

@@ -53,12 +53,23 @@ type DesiredConfigResponse struct {
 		AllowedIPs                 []string            `json:"allowedIPs"`
 		EndpointCandidates         []EndpointCandidate `json:"endpointCandidates"`
 		PersistentKeepaliveSeconds int                 `json:"persistentKeepaliveSeconds"`
+		Services                   []telemetry.Service `json:"services"`
 	} `json:"peers"`
 }
 
 type EndpointCandidate struct {
 	Endpoint string `json:"endpoint"`
-	Kind     string `json:"kind"` // host_reported | reflexive_guess
+	Kind     string `json:"kind"` // host_reported | reflexive_guess | relay
+}
+
+// RelayCandidate returns the peer's "relay:<id>" candidate, or "".
+func RelayCandidate(cands []EndpointCandidate) string {
+	for _, c := range cands {
+		if c.Kind == "relay" && wireguard.IsRelayEndpoint(c.Endpoint) {
+			return c.Endpoint
+		}
+	}
+	return ""
 }
 
 type Executor struct {
@@ -184,8 +195,9 @@ func (e *Executor) FetchDesired(ctx context.Context) (*DesiredConfigResponse, er
 
 // PickEndpoint chooses one IP-literal candidate: first one on a subnet this
 // host is directly attached to (same LAN), else a reflexive guess, else the
-// first host-reported one. Returns "" when nothing usable exists. NAT
-// traversal and relay selection are future work (docs/network-protocols.md).
+// first host-reported one. Returns "" when nothing usable exists. Relay
+// candidates are never picked here: userspace mode falls back to them when
+// the direct path does not produce a handshake (see RelayCandidate).
 func PickEndpoint(cands []EndpointCandidate, localNets []*net.IPNet) string {
 	usable := make([]EndpointCandidate, 0, len(cands))
 	for _, c := range cands {

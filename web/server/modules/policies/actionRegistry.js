@@ -53,7 +53,7 @@ const ACTIONS = {
     description: 'Route peer traffic through a relay when direct UDP fails',
     risk: 'medium',
     available: false,
-    unavailableReason: 'Relay transport is not implemented yet (see docs/implementation-roadmap.md)',
+    unavailableReason: 'Not needed as an action: userspace agents switch to the relay on their own when no direct handshake happens',
     params: z.object({ peerDeviceId: objectId }).strict(),
   },
 };

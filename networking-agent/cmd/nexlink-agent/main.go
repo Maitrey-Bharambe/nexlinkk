@@ -2,6 +2,8 @@
 //
 //	nexlink-agent enroll --server https://cp.example   # token read from NEXLINK_ENROLLMENT_TOKEN or stdin
 //	nexlink-agent run                                  # heartbeat / telemetry / approved commands
+//	nexlink-agent run --userspace --share rdp          # tunnel in-process; relay fallback; share Remote Desktop
+//	nexlink-agent session pc-2 rdp                     # remote session to another device, through the tunnel
 //	nexlink-agent status                               # local, read-only inspection
 //	nexlink-agent probe --target host:port             # one bounded TCP probe
 //	nexlink-agent apply                                # explicit WireGuard apply (privileged mode only)
@@ -56,6 +58,8 @@ func main() {
 		err = cmdEnroll(ctx, os.Args[2:])
 	case "run":
 		err = cmdRun(ctx, os.Args[2:], log)
+	case "session":
+		err = cmdSession(os.Args[2:])
 	case "status":
 		err = cmdStatus(ctx, os.Args[2:])
 	case "probe":
@@ -89,7 +93,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|status|doctor|export-config|lab|probe|apply|install|uninstall|service-status|version> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|session|status|doctor|export-config|lab|probe|apply|install|uninstall|service-status|version> [flags]")
 }
 
 // commonFlags returns a pointer: flags are parsed into this same struct later.
@@ -104,6 +108,9 @@ func commonFlags(name string, args []string) (*config.Config, *flag.FlagSet) {
 	fs.BoolVar(&cfg.Privileged, "enable-privileged", cfg.Privileged, "allow approved commands to change the WireGuard interface")
 	fs.BoolVar(&cfg.Userspace, "userspace", cfg.Userspace, "run the tunnel inside the agent (no WireGuard app or Administrator needed)")
 	fs.IntVar(&cfg.ListenPort, "listen-port", cfg.ListenPort, "WireGuard UDP listen port")
+	fs.BoolVar(&cfg.Relay, "relay", cfg.Relay, "userspace: fall back to the encrypted relay when peers are not directly reachable")
+	fs.BoolVar(&cfg.ForceRelay, "force-relay", cfg.ForceRelay, "userspace: always use the relay, never a direct path")
+	fs.StringVar(&cfg.Share, "share", cfg.Share, "userspace: share local services for remote sessions, e.g. rdp,ssh,http:3000")
 	return cfg, fs
 }
 

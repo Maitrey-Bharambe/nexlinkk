@@ -36,9 +36,8 @@ if ($profiles -notcontains 'Private') {
 }
 
 if ($Server) {
-  Write-Host 'Portal PC: letting other PCs on this LAN reach the console and control plane'
-  Add-Rule 'NexLink console (3000)' TCP 3000
-  Add-Rule 'NexLink control plane (4000)' TCP 4000
+  Write-Host 'Portal PC: letting other PCs on this LAN reach NexLink (console, API and relay share one port)'
+  Add-Rule 'NexLink (3000)' TCP 3000
 }
 if ($Agent) {
   Write-Host 'Agent PC: letting peers reach the WireGuard tunnel'

@@ -22,9 +22,9 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Groq](https://img.shields.io/badge/Groq_LLM-F55036?style=for-the-badge&logoColor=white)
 
-![tests](https://img.shields.io/badge/tests-94_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
-![control plane](https://img.shields.io/badge/control--plane-64%2F64-C7FF2E?style=flat-square&labelColor=2E2E2E)
-![agent](https://img.shields.io/badge/go--agent-20%2F20_%2B_integration-C7FF2E?style=flat-square&labelColor=2E2E2E)
+![tests](https://img.shields.io/badge/tests-120_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
+![web](https://img.shields.io/badge/web_%2B_control_plane-77%2F77-C7FF2E?style=flat-square&labelColor=2E2E2E)
+![agent](https://img.shields.io/badge/go--agent-28%2F28_%2B_integration-C7FF2E?style=flat-square&labelColor=2E2E2E)
 ![diagnostics](https://img.shields.io/badge/diagnostic--service-15%2F15-C7FF2E?style=flat-square&labelColor=2E2E2E)
 
 </div>
@@ -37,12 +37,15 @@
 
 ## ✨ Overview
 
-NexLink lets you create private networks, enroll your own computers, watch real connectivity, diagnose
-failures, and run **approved** remote actions from a web console.
+NexLink lets you create private networks, invite computers from **anywhere**, watch real connectivity,
+open **remote sessions** through encrypted tunnels, diagnose failures, and run **approved** remote actions
+— all from one web app that deploys as a single process.
 
 | | |
 |---|---|
-| 🔐 **Real VPN, not a dashboard** | Devices talk over **WireGuard**. The web server never carries tunnel traffic — control plane and data plane are separate. |
+| 🌍 **Any network, any computer** | Send an invite link; whoever opens it pastes one line. Home Wi-Fi, office, hotel, mobile hotspot, CGNAT — devices connect directly when they can and through an **encrypted relay** when they can't. |
+| 🔐 **Real VPN, not a dashboard** | Devices talk over **WireGuard**, end to end. Even through the relay, the server only forwards ciphertext it cannot read. |
+| 🚀 **One app to deploy** | Console, REST API, live updates and relay are **one Next.js process on one port** — one container, one URL. |
 | 🧾 **Honest state** | Agent liveness, interface state and tunnel handshakes are tracked **separately**. Missing data shows as *unknown / not measured* — never as `0` or "healthy". |
 | 🧠 **AI with guardrails** | Diagnostics (rules or **Groq LLM**) must cite real evidence, can only propose allowlisted actions, and every action needs policy checks **and** a human yes. |
 | 📜 **Audited** | Every security-sensitive operation is written to an append-only audit log by the backend. |
@@ -52,15 +55,19 @@ failures, and run **approved** remote actions from a web console.
 | | Feature | What it gives you |
 |:---:|---|---|
 | 🙋 | **Sign up & register this PC** | Create an account, get your own private network and register the computer you're on in about a minute. |
+| 💌 | **Invite links** | Add a device and send the link. The invited person sees the right one-liner for Windows, macOS or Linux — no account, no admin rights, no WireGuard app. The token rides in the URL `#fragment`, which never reaches a server. |
 | 🌐 | **Private networks** | Pick an IPv4 range; NexLink validates it, prevents overlaps and hands every device a unique virtual address. |
 | 🪪 | **Cryptographic device identity** | Each PC generates its own Ed25519 identity. One-time enrollment tokens, signed requests, instant revocation. |
 | 🔐 | **WireGuard data plane** | Devices talk directly over encrypted UDP. The agent can export a ready-to-import tunnel file for the WireGuard app. |
-| 🖧 | **Second PC in one minute** | Open the portal from any PC on the same Wi-Fi, click **register**, paste one PowerShell line — `run --userspace` carries the WireGuard tunnel inside the agent: no WireGuard app, no admin rights. |
+| 🖧 | **Join from anywhere in one minute** | One PowerShell or shell line downloads the agent, creates keys on that computer, enrolls and starts the tunnel — `run --userspace` carries WireGuard inside the agent. |
+| 📡 | **Encrypted relay (NAT traversal)** | Each peer is tried directly first; if no handshake comes within 20 s the agent switches to `relay:<device>` — WireGuard packets inside the agent's signed WebSocket. Same-network only, rate-limited, cut the moment a device is revoked. The topology shows **direct** vs **relay** per link. |
+| 🖥️ | **Remote sessions** | The device owner opts in with `--share rdp,ssh` (or picks it on the invite page). Operators run `nexlink-agent session pc-2 rdp` — Remote Desktop opens through the tunnel, from any network. Both agents log every session to their console in the portal. |
 | 💓 | **Live, honest health** | Agent liveness, interface state and tunnel handshakes are tracked separately; RTT, jitter and loss are measured through the tunnel. |
 | 🕸️ | **Interactive topology** | A live map that tells *configured* links apart from links WireGuard has actually confirmed. |
 | 🎬 | **Protocol simulation** | An animated replay of the two-PC tunnel — enrollment, peer config, the WireGuard handshake (148 B / 92 B), encrypted probes and telemetry — with failure scenarios (packet loss, peer offline, control plane down, revocation), a packet inspector and the real link state of your own devices alongside. |
 | 🩺 | **Automatic diagnostics** | Incidents are detected from real observations; read-only tools collect evidence; diagnosis by rules or AI. |
-| 🤖 | **AI with guardrails** | Groq-powered diagnosis must cite collected evidence and can only propose allowlisted actions. |
+| ✨ | **AI insights** | Every network gets an AI briefing on the overview: what is healthy, what is failing, the likely causes and what the AI could not tell — each finding cites the recorded evidence it is based on, and invented citations are rejected. Alongside it, analytics computed from agent records: health score, direct vs relayed tunnels, 24 h latency and loss, incident trends and mean time to resolve. |
+| 🤖 | **AI with guardrails** | Groq-powered diagnosis must cite collected evidence and can only propose allowlisted actions. One click on any device — **analyze with AI** — gives a grounded health analysis that can explain but never act. |
 | ✅ | **Approve, execute, verify** | Every action needs a human yes, runs on the agent, and is verified from fresh measurements. |
 | 📜 | **Audit log** | Every security-sensitive operation is recorded by the backend and searchable in the console. |
 | 🖥️ | **Agent console in the browser** | Each device page streams the agent's own output live, and **run on this device** buttons send approved commands and show the verified result. |
@@ -81,31 +88,29 @@ flowchart LR
         B["Browser<br/>NexLink console"]
     end
 
-    subgraph WEB["🖥️ Web tier"]
-        FE["Next.js :3000<br/>/api/v1 rewrite"]
-    end
-
-    subgraph CP["🧭 Control plane — coordination only"]
-        API["Express API :4000<br/>sessions · RBAC · CSRF"]
+    subgraph APP["🧭 NexLink — one Next.js process, one port"]
+        FE["Console pages<br/>+ /join invite page"]
+        API["REST API /api/v1<br/>sessions · RBAC · CSRF"]
         AG["Agent API<br/>Ed25519-signed requests"]
+        RL["Encrypted relay<br/>WireGuard ciphertext only"]
         DET["Incident detector"]
         POL["Policy engine<br/>action allowlist"]
         AUD["Audit log"]
-        DB[("MongoDB")]
     end
+    DB[("MongoDB")]
 
     subgraph AI["🤖 AI layer — optional"]
         DS["Diagnostic service<br/>FastAPI :8090"]
         LLM["Groq LLM"]
     end
 
-    subgraph DP["🔐 Data plane — WireGuard"]
-        A1["PC-1<br/>nexlink-agent"]
-        A2["PC-2<br/>nexlink-agent"]
+    subgraph DP["🔐 Data plane — WireGuard, end to end"]
+        A1["PC-1 · home Wi-Fi<br/>nexlink-agent"]
+        A2["PC-2 · office / 4G<br/>nexlink-agent"]
     end
 
-    B -->|"HTTPS + cookie"| FE --> API
-    B <-.->|"Socket.IO ids only"| API
+    B -->|"HTTPS + cookie · Socket.IO"| FE
+    FE --- API
     API --- DB
     AG --- DB
     API --> POL --> AUD
@@ -113,28 +118,29 @@ flowchart LR
     API --> DS --> LLM
     A1 -->|"heartbeat · telemetry"| AG
     A2 -->|"heartbeat · telemetry"| AG
-    A1 <==>|"UDP 51820 encrypted tunnel"| A2
+    A1 <==>|"direct UDP when reachable"| A2
+    A1 <-.->|"relay fallback · WSS"| RL
+    RL <-.-> A2
 
     classDef lime fill:#C7FF2E,stroke:#0F0F0F,color:#0F0F0F,stroke-width:2px
     classDef ink fill:#0F0F0F,stroke:#C7FF2E,color:#FFFFFF,stroke-width:1px
-    classDef char fill:#2E2E2E,stroke:#808080,color:#FFFFFF
     classDef white fill:#FFFFFF,stroke:#0F0F0F,color:#0F0F0F
     classDef ai fill:#F55036,stroke:#0F0F0F,color:#FFFFFF
     classDef db fill:#47A248,stroke:#0F0F0F,color:#FFFFFF
     class A1,A2 lime
-    class API,AG,DET,POL,AUD ink
+    class API,AG,DET,POL,AUD,RL ink
     class B,FE white
     class DS,LLM ai
     class DB db
     style DP fill:#1A1F0A,stroke:#C7FF2E,color:#C7FF2E
-    style CP fill:#161616,stroke:#808080,color:#FFFFFF
+    style APP fill:#161616,stroke:#808080,color:#FFFFFF
     style AI fill:#2A1410,stroke:#F55036,color:#F55036
-    style WEB fill:#161616,stroke:#808080,color:#FFFFFF
     style OP fill:#161616,stroke:#808080,color:#FFFFFF
 ```
 
-> The thick lime link is the **only** path VPN packets take. The control plane coordinates keys, addresses
-> and policy — it never sees tunnel traffic.
+> VPN packets take the thick lime link when the two networks allow it, and the dotted relay path when they
+> don't. Either way they are WireGuard-encrypted between the two agents: the server coordinates keys,
+> addresses and policy, and at most forwards ciphertext it holds no key for.
 
 ### Four layers of "is it connected?"
 
@@ -174,6 +180,33 @@ sequenceDiagram
     loop every 30 s
         A->>P: signed heartbeat + telemetry
     end
+```
+
+### 🌍 Invite → tunnel → remote session, across any networks
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor O as 👩‍💻 Operator
+    participant N as 🧭 NexLink (one URL)
+    actor R as 🧑 Person at PC-2
+    participant A2 as 🐹 Agent PC-2 (behind NAT)
+    participant A1 as 🐹 Agent PC-1 (operator)
+
+    O->>N: add device "office-pc" → invite link
+    O-->>R: sends link (chat, email)
+    R->>N: opens /join#token… (token stays in the browser)
+    R->>A2: pastes one line (download · enroll · run --share rdp)
+    A2->>N: signed enroll, heartbeat, relay WebSocket
+    A1->>A2: WireGuard handshake, direct UDP
+    Note over A1,A2: no handshake in 20 s → both use the relay
+    rect rgba(199, 255, 46, 0.18)
+        A1->>N: WireGuard ciphertext (WSS)
+        N->>A2: forwarded, same network only
+        A2-->>A1: handshake response · encrypted tunnel up
+    end
+    O->>A1: nexlink-agent session office-pc rdp
+    A1->>A2: TCP 3389 inside the tunnel → Remote Desktop opens
 ```
 
 ### 🚦 Peer link states (what the topology draws)
@@ -277,38 +310,46 @@ Integrity rules live in the database as unique / partial / TTL indexes — see [
 
 ## 🚀 Quick start
 
-**Prerequisites:** Node 20+, Python 3.11+ (only for AI diagnostics). MongoDB is optional — `npm run dev:mongo`
-starts a local one, or point `MONGODB_URI` at Docker / Atlas. Go is only needed to rebuild the agent.
+**Prerequisites:** Node 20+. That's it for the core — MongoDB is embedded in development, and the agent
+downloads come from `scripts/build-agent.ps1` (Go 1.22+ only needed to rebuild them).
 
 ```bash
-# 1 · control plane  (terminal A + B)
-cd control-plane
+cd web
 cp .env.example .env
-npm install
-npm run dev:mongo          # A: dev-only MongoDB on 127.0.0.1:27017
-npm run dev                # B: http://localhost:4000
-
-# 2 · console  (terminal C)
-cd frontend
-cp .env.example .env.local
 npm install
 npm run dev                # http://localhost:3000 → sign up (first account becomes admin)
 ```
 
-Then **register a pc** in the console and, in an **Administrator** PowerShell:
+One process serves the console, the API, live updates and the relay. Click **register this pc**, paste the
+line it shows into PowerShell (or a terminal on macOS/Linux) — done.
+
+**Invite another computer, anywhere:** devices → **add a device** → copy the invite link and send it. For
+computers outside your LAN the portal has to be reachable from the internet:
+
+```bash
+docker compose up -d --build          # NexLink + MongoDB; put HTTPS in front and set PUBLIC_URL
+```
+
+or run the `Dockerfile` on Render / Railway / Fly.io / any VPS with `MONGODB_URI` (e.g. Atlas) and
+`PUBLIC_URL`. Full guide: **[docs/deploy.md](docs/deploy.md)**.
+
+<details>
+<summary>🖥️ Open a remote session</summary>
+
+On the computer you want to reach, pick **allow remote sessions: remote desktop** on the invite page (or
+start its agent with `--share rdp`). Then, on your own enrolled PC:
 
 ```powershell
-cd networking-agent\bin
-.\nexlink-agent.exe enroll --server http://localhost:4000   # paste the token
-.\nexlink-agent.exe run
+& "$env:LOCALAPPDATA\NexLink\nexlink-agent.exe" session office-pc rdp
 ```
+The device page shows the exact command, whether the link is **direct** or **relay**, and the session log.
+</details>
 
 <details>
 <summary>🐹 Build the agent yourself</summary>
 
-```bash
-cd networking-agent
-go build -o bin/nexlink-agent.exe ./cmd/nexlink-agent
+```powershell
+.\scripts\build-agent.ps1     # Windows, Linux (x64/ARM64), macOS (Intel/Apple silicon) → web/public/downloads
 ```
 </details>
 
@@ -321,26 +362,15 @@ python -m venv .venv; .venv\Scripts\pip install -r requirements.txt
 $env:NEXLINK_DIAG_PROVIDER="groq"; $env:GROQ_API_KEY="<your key>"
 .venv\Scripts\python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8090
 ```
-Set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `control-plane/.env`. Only evidence summaries are sent to Groq.
-</details>
-
-<details>
-<summary>🔗 Connect two PCs over WireGuard</summary>
-
-On PC-2 (same Wi-Fi), open `http://<PC-1 LAN IP>:3000` → **register this pc** → **copy command**, and paste it into PowerShell:
-```powershell
-$env:NEXLINK_ENROLLMENT_TOKEN='nxe_…'; irm 'http://<PC-1 LAN IP>:3000/join.ps1?device=<id>' | iex
-```
-That one line downloads the agent, creates the PC's keys locally, enrolls and starts the userspace tunnel. On PC-1 (Administrator, once): `.\scripts\lan-firewall.ps1 -Server -Agent`. Full runbook: **[docs/two-pc-test.md](docs/two-pc-test.md)**.
-`nexlink-agent export-config` writes the tunnel file for the WireGuard app; `nexlink-agent doctor` tells you exactly what is missing.
+Set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `web/.env`. Only evidence summaries are sent to Groq.
 </details>
 
 ## 🧪 Testing
 
 | Suite | Command | Result | Category |
 |---|---|:---:|---|
-| 🧭 Control plane | `cd control-plane && npm test` | ✅ 64 / 64 | integration vs ephemeral MongoDB + simulated agent with real keys |
-| 🐹 Go agent | `cd networking-agent && go test ./...` | ✅ 20 / 20 | unit + real wireguard-go tunnel on loopback (no OS adapters) |
+| 🧭 Web app + control plane | `cd web && npm test` | ✅ 77 / 77 | integration vs ephemeral MongoDB + simulated agents with real keys; relay over real WebSockets |
+| 🐹 Go agent | `cd networking-agent && go test ./...` | ✅ 28 / 28 | unit + real wireguard-go tunnels on loopback, incl. one whose **only** path is the relay; session gateway end to end |
 | 🐹 Agent ↔ control plane | `go test -tags integration ./tests/` | ✅ passed | real agent vs running control plane |
 | 🤖 Diagnostic service | `cd diagnostic-service && python -m pytest -q` | ✅ 15 / 15 | contract tests, Groq mocked |
 | 🔐 WireGuard tunnel | `nexlink-agent lab --a <dirA> --b <dirB>` | ✅ connected | real WireGuard protocol between two enrolled agents |
@@ -352,6 +382,8 @@ That one line downloads the agent, creates the PC's keys locally, enrolls and st
 - 🔑 Private keys **never leave the device** and are never stored in the database.
 - 🛡️ RBAC enforced in the backend; out-of-scope resources return 404.
 - 🧱 Agent is **read-only by default**; host changes need `NEXLINK_ENABLE_PRIVILEGED=true` locally *and* an approved command.
+- 📡 The relay forwards WireGuard ciphertext only, between devices of the same network, rate-limited per device; revocation closes the socket at once.
+- 🖥️ Nothing is shared for remote sessions unless the device's owner opts in; shared services listen on the tunnel address only.
 - 🤖 AI output is untrusted input: strict schema, evidence grounding, action allowlist, policy engine, human approval, agent-side allowlist.
 
 Full analysis: [docs/threat-model.md](docs/threat-model.md).
@@ -360,12 +392,15 @@ Full analysis: [docs/threat-model.md](docs/threat-model.md).
 
 ```text
 nexlink/
-├── 🖥️ frontend/            Next.js console (JavaScript, Tailwind, React Flow, Socket.IO)
-├── 🧭 control-plane/       Express + MongoDB: auth, networks, enrollment, telemetry, incidents, policy, audit
+├── 🧭 web/                 the NexLink app — one Next.js process, one port
+│   ├── app/ features/ …    console, invite page, join scripts (Tailwind, React Flow, Socket.IO)
+│   ├── server/             control plane: auth, networks, enrollment, telemetry, incidents, policy, audit, relay
+│   └── server.js           serves all of it together
 ├── 🐹 networking-agent/    Go agent: identity, signed transport, WireGuard, probes, executor, doctor
 ├── 🤖 diagnostic-service/  FastAPI: diagnostic contracts, mock + Groq providers, grounding validator
 ├── 📚 docs/                architecture, threat model, protocols, API, schema, roadmap, two-PC runbook
-└── 🐳 docker-compose.yml   MongoDB (+ optional control plane / diagnostic service)
+├── 🐳 Dockerfile           one image: app + agent downloads for every OS
+└── 🐳 docker-compose.yml   NexLink + MongoDB (+ optional AI service)
 ```
 
 ## 📚 Documentation
@@ -377,7 +412,11 @@ nexlink/
 | [api-contracts.md](docs/api-contracts.md) | every REST endpoint with permissions |
 | [database-schema.md](docs/database-schema.md) | collections, indexes, retention |
 | [threat-model.md](docs/threat-model.md) | threats, mitigations, known gaps |
-| [two-pc-test.md](docs/two-pc-test.md) | step-by-step guide to connect two PCs |
+| [deploy.md](docs/deploy.md) | put NexLink on the internet: Docker, PaaS, HTTPS, PUBLIC_URL |
+| [two-pc-test.md](docs/two-pc-test.md) | step-by-step guide to connect two PCs, on one network or on two |
+| [run-commands.md](docs/run-commands.md) | start each part by hand, demo data, quick fixes |
+| [NexLink-Page-Script.pdf](docs/NexLink-Page-Script.pdf) | every console page: what it shows and how to explain it |
+| [NexLink-Demo-Guide.pdf](docs/NexLink-Demo-Guide.pdf) | full presentation script with commands |
 
 <div align="center">
 <sub>Built with 🟢 electric lime · #C7FF2E</sub>

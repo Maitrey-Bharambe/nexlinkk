@@ -2,7 +2,6 @@
 
 const express = require('express');
 const helmet = require('helmet');
-const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const pinoHttp = require('pino-http');
 const crypto = require('node:crypto');
@@ -20,6 +19,7 @@ const { approvalsRouter } = require('./modules/approvals/approvals.routes');
 const { auditRouter } = require('./modules/audit/audit.routes');
 const { topologyRouter } = require('./modules/topology/topology.routes');
 const { onboardingRouter } = require('./modules/onboarding/onboarding.routes');
+const { insightsRouter } = require('./modules/insights/insights.routes');
 
 function createApp({ config, logger }) {
   const app = express();
@@ -45,17 +45,15 @@ function createApp({ config, logger }) {
     }),
   );
   app.use(helmet());
-  app.use(
-    cors({
-      origin: (origin, cb) => cb(null, config.isAllowedOrigin(origin)),
-      credentials: true,
-      methods: ['GET', 'POST', 'DELETE'],
-      allowedHeaders: ['content-type', 'x-csrf-token'],
-    }),
-  );
+  // No CORS: the console is served by this same process, so every browser
+  // call is same-origin and the session cookie stays SameSite=Strict.
 
   // Liveness of this process only — says nothing about any VPN tunnel.
-  app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'control-plane' }));
+  app.get('/healthz', (_req, res) => res.json({ ok: true, service: 'nexlink' }));
+  // Public facts the console needs to build join commands and invite links.
+  app.get('/api/v1/meta', (_req, res) =>
+    res.json({ ok: true, data: { publicUrl: config.PUBLIC_URL || null, relay: config.RELAY_ENABLED } }),
+  );
 
   // Agent API: own parser (raw body for signatures) and own auth; no cookies.
   app.use('/api/v1/agent', agentRouter(deps));
@@ -83,6 +81,7 @@ function createApp({ config, logger }) {
   api.use(auditRouter(deps));
   api.use(topologyRouter(deps));
   api.use(onboardingRouter(deps));
+  api.use(insightsRouter(deps));
   app.use('/api/v1', api);
 
   app.use(notFoundHandler);

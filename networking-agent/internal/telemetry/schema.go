@@ -76,6 +76,14 @@ type Heartbeat struct {
 	Health        Health        `json:"health"`
 	VPNInterface  *VPNInterface `json:"vpnInterface"`
 	Capabilities  []string      `json:"capabilities"`
+	// Local services shared into the tunnel for remote sessions (--share).
+	Services []Service `json:"services,omitempty"`
+}
+
+// Service is a local TCP service a device shares with its network.
+type Service struct {
+	Name string `json:"name"` // rdp | ssh | vnc | http | https | tcp
+	Port int    `json:"port"`
 }
 
 func Ts(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }

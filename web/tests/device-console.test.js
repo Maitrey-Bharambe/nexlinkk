@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, createUser, login, networkWithAgents } = require('./helpers');
-const { AuditEvent } = require('../src/database/models/audit');
+const { AuditEvent } = require('../server/database/models/audit');
 
 let ctx;
 let op;

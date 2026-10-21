@@ -42,6 +42,7 @@ async function recordHeartbeat(device, hb, { config, sourceAddress }) {
       lastHeartbeat: { bootId: hb.bootId, sequence: hb.sequence, agentTime, health: hb.health.status, clockSkewMs },
       agentVersion: hb.agentVersion,
       capabilities: hb.capabilities,
+      services: hb.services || [],
     },
   );
   if (upd.matchedCount === 0) {
@@ -160,8 +161,8 @@ async function recordTelemetry(device, t, { config, sourceAddress }) {
             peerFingerprint: p.publicKey,
             lastHandshakeAt,
             endpoint: p.endpoint,
-            // Relay transport is not implemented yet; a WireGuard peer endpoint is a direct UDP path.
-            path: p.endpoint ? 'direct' : 'unknown',
+            // "relay:<id>" = WireGuard through this server's relay; ip:port = direct UDP.
+            path: !p.endpoint ? 'unknown' : p.endpoint.startsWith('relay:') ? 'relay' : 'direct',
             rxBytes: p.rxBytes,
             txBytes: p.txBytes,
             observedAt: measuredAt,

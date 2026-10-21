@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { CheckSquare } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
-import { Empty, ErrorState, Loading, PageHeader } from '@/components/ui';
+import { Empty, ErrorState, Loading, PageHeader, Segmented } from '@/components/ui';
 import ActionCard from '@/features/incidents/ActionCard';
 
 const TABS = [
@@ -24,11 +24,9 @@ export default function ApprovalsPage() {
   return (
     <div>
       <PageHeader kicker="human in the loop · policy re-checked at approval" title="approvals">
-        {TABS.map(([v, label]) => (
-          <button key={v} onClick={() => setTab(v)} className={`rounded-full px-4 py-2 font-mono text-xs uppercase ${tab === v ? 'bg-lime text-ink' : 'border border-charcoal text-mid hover:text-white'}`}>
-            {label}
-          </button>
-        ))}
+        <div className="max-w-full overflow-x-auto scrollbar-thin">
+          <Segmented label="Approval state" value={tab} onChange={setTab} options={TABS} />
+        </div>
       </PageHeader>
       <ErrorState error={error} onRetry={reload} />
       {loading && !data ? (
@@ -38,7 +36,7 @@ export default function ApprovalsPage() {
           {tab === 'awaiting_approval' ? 'no actions are waiting. diagnostics propose them; nothing runs without a decision here.' : 'no actions in this state.'}
         </Empty>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
           {data.map((a) => (
             <div key={a.id}>
               {a.incidentId ? (

@@ -1,6 +1,6 @@
 """Data contracts between the control plane and the diagnostic service.
 
-These mirror control-plane/src/modules/diagnostics/diagnostic.schema.js. The
+These mirror web/server/modules/diagnostics/diagnostic.schema.js. The
 control plane re-validates every response, so this service cannot widen what
 is accepted — it can only be stricter.
 """

@@ -386,7 +386,7 @@ function RealisticControlPlane({ down }) {
               SYSTEM HALTED
             </text>
             <text x={62} y={34} textAnchor="middle" className="font-mono" fontSize={9} fill="#FF5A36">
-              PORT :4000 OFFLINE
+              PORT :3000 OFFLINE
             </text>
             <text x={62} y={48} textAnchor="middle" className="font-mono" fontSize={7.5} fill="#808080">
               CLUSTER DISCONNECTED
@@ -400,7 +400,7 @@ function RealisticControlPlane({ down }) {
             <rect x={0} y={0} width={124} height={15} rx={4} fill="#0E1A11" />
             <circle cx={8} cy={7.5} r={2} fill="#C7FF2E" />
             <text x={14} y={11} className="font-mono" fontSize={8} fontWeight={700} fill="#C7FF2E">
-              NEXLINK CP :: :4000
+              NEXLINK CP :: :3000
             </text>
             <text x={8} y={27} className="font-mono" fontSize={8} fill="#D4D4D4">
               PEERS: 2 SYNCHRONIZED
@@ -730,7 +730,7 @@ export default function SimulationCanvas({ a, b, st, inflight }) {
 
         {/* Top-Right Telemetry */}
         <text x={W - 24} y={32} textAnchor="end" fontSize={9} fill="#808080" letterSpacing="1">
-          CHANNEL // UDP:51820 · HTTPS:4000
+          CHANNEL // UDP:51820 · HTTPS:3000
         </text>
         <text x={W - 24} y={46} textAnchor="end" fontSize={8} fill="#808080">
           CHACHA20-POLY1305 · ED25519

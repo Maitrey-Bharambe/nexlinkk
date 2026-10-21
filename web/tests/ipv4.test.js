@@ -3,7 +3,7 @@
 // Category: unit-tested behaviour (pure functions).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseCIDR, parseIPv4, intToIPv4, rangesOverlap, allocateAddress, defaultReserved } = require('../src/utils/ipv4');
+const { parseCIDR, parseIPv4, intToIPv4, rangesOverlap, allocateAddress, defaultReserved } = require('../server/utils/ipv4');
 
 test('parses canonical private CIDRs', () => {
   const r = parseCIDR('10.42.0.0/24');

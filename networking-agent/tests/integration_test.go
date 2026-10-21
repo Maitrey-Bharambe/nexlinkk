@@ -5,7 +5,7 @@
 // WireGuard or host networking (the interface is inspected read-only and is
 // expected to be absent/unavailable on a dev box).
 //
-//	NEXLINK_IT_SERVER=http://127.0.0.1:4000 NEXLINK_IT_TOKEN=nxe_... go test -tags integration ./tests/
+//	NEXLINK_IT_SERVER=http://127.0.0.1:3000 NEXLINK_IT_TOKEN=nxe_... go test -tags integration ./tests/
 package tests
 
 import (

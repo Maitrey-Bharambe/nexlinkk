@@ -10,15 +10,15 @@ const crypto = require('node:crypto');
 const request = require('supertest');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
-const { loadConfig } = require('../src/config/env');
-const { createLogger } = require('../src/config/logger');
-const { connectDatabase } = require('../src/database');
-const { createApp } = require('../src/app');
-const { User } = require('../src/database/models/identity');
-const { hashPassword } = require('../src/modules/auth/passwords');
-const { canonicalRequest } = require('../src/middleware/agentAuth');
-const { enrollmentMessage } = require('../src/modules/enrollment/enrollment.service');
-const { sha256Hex } = require('../src/utils/crypto');
+const { loadConfig } = require('../server/config/env');
+const { createLogger } = require('../server/config/logger');
+const { connectDatabase } = require('../server/database');
+const { createApp } = require('../server/app');
+const { User } = require('../server/database/models/identity');
+const { hashPassword } = require('../server/modules/auth/passwords');
+const { canonicalRequest } = require('../server/middleware/agentAuth');
+const { enrollmentMessage } = require('../server/modules/enrollment/enrollment.service');
+const { sha256Hex } = require('../server/utils/crypto');
 
 const PASSWORD = 'correct-horse-battery-staple';
 

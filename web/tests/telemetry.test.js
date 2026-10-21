@@ -4,10 +4,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, createUser, login, networkWithAgents } = require('./helpers');
-const { Device } = require('../src/database/models/device');
-const { Measurement } = require('../src/database/models/telemetry');
-const { computeDeviceHealth, peerLinkState, thresholds } = require('../src/modules/telemetry/health');
-const { loadConfig } = require('../src/config/env');
+const { Device } = require('../server/database/models/device');
+const { Measurement } = require('../server/database/models/telemetry');
+const { computeDeviceHealth, peerLinkState, thresholds } = require('../server/modules/telemetry/health');
+const { loadConfig } = require('../server/config/env');
 
 let ctx;
 let op;

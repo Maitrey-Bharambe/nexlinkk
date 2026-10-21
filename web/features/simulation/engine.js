@@ -206,7 +206,7 @@ export function buildTimeline(scenario, { a, b, seed = 7 }) {
     };
     if (failed) {
       at = packet(dev, 'CP', { channel: 'control', kind: 'http', drop: true, ...req });
-      log(dev, 'telemetry failed: dial tcp :4000: connection refused (will retry)', 'warn');
+      log(dev, 'telemetry failed: dial tcp :3000: connection refused (will retry)', 'warn');
       wait(150);
       return;
     }

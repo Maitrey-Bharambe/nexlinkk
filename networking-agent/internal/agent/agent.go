@@ -49,6 +49,11 @@ type Agent struct {
 	// Events, when set, is uploaded after every heartbeat so the console can
 	// show the agent's own output (see events.go).
 	Events *EventBuffer
+
+	// Services shared into the tunnel (userspace --share), reported in every
+	// heartbeat; ExtraCapabilities adds e.g. "relay" while it is connected.
+	Services          []telemetry.Service
+	ExtraCapabilities func() []string
 }
 
 type eventBatch struct {
@@ -125,6 +130,9 @@ func (a *Agent) capabilities(src string) []string {
 	if a.cfg.Privileged {
 		caps = append(caps, "wireguard_apply")
 	}
+	if a.ExtraCapabilities != nil {
+		caps = append(caps, a.ExtraCapabilities()...)
+	}
 	return caps
 }
 
@@ -160,6 +168,7 @@ func (a *Agent) heartbeat(ctx context.Context) (int, error) {
 		Health:        health,
 		VPNInterface:  &telemetry.VPNInterface{Name: &name, State: orUnknown(st.State)},
 		Capabilities:  a.capabilities(st.Source),
+		Services:      a.Services,
 	}
 	var out heartbeatResp
 	err := a.client.Do(ctx, "POST", "/api/v1/agent/heartbeat", hb, &out)

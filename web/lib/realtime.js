@@ -18,8 +18,8 @@ function setStatus(s) {
 export function getSocket() {
   if (typeof window === 'undefined') return null;
   if (!socket) {
-    const url = process.env.NEXT_PUBLIC_CONTROL_PLANE_WS || `${window.location.protocol}//${window.location.hostname}:4000`;
-    socket = io(url, { withCredentials: true, transports: ['websocket', 'polling'], reconnectionDelayMax: 10_000 });
+    // Same origin: server.js serves Socket.IO on the console's own port.
+    socket = io({ withCredentials: true, transports: ['websocket', 'polling'], reconnectionDelayMax: 10_000 });
     socket.on('connect', () => setStatus('live'));
     socket.on('disconnect', () => setStatus('disconnected'));
     // A handshake rejected by auth middleware is not retried by socket.io; retry ourselves.

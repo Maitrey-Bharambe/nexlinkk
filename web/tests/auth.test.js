@@ -5,8 +5,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { setup, createUser, login } = require('./helpers');
-const { AuditEvent } = require('../src/database/models/audit');
-const { Session } = require('../src/database/models/identity');
+const { AuditEvent } = require('../server/database/models/audit');
+const { Session } = require('../server/database/models/identity');
 
 let ctx;
 test.before(async () => {

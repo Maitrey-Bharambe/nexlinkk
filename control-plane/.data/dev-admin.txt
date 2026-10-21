@@ -1,0 +1,7 @@
+dev admin (local only)
+email: admin@nexlink.test
+password: MmzayAUvGUTC3hyi
+
+signup test user (local only)
+email: demo@nexlink.test
+password: nASwDztAEswEBCkj

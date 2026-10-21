@@ -1,47 +1,80 @@
 @import 'tailwindcss';
 
 /*
- * NexLink palette
- *   ink      #0F0F0F  — background
- *   lime     #C7FF2E  — electric accent / healthy / primary action
- *   white    #FFFFFF  — primary text, emphasis
- *   charcoal #2E2E2E  — raised surfaces, borders
- *   gray     #808080  — muted text, unknown / configured
- * Signal (used sparingly, status only): coral #FF5A36 — unreachable / denied.
+ * NexLink design tokens — "precision with character".
+ *
+ * Palette (functional, not decorative):
+ *   ink      #0F0F0F  background
+ *   lime     #C7FF2E  primary action, active nav, verified/healthy, selection — used sparingly
+ *   white    #FFFFFF  headings, critical values
+ *   charcoal #2E2E2E  muted surfaces, separators
+ *   mid      #808080  secondary text, inactive, configured/unknown
+ * Status signals (operational clarity only):
+ *   amber    #F2B94B  degraded / warning
+ *   coral    #FF5A36  unreachable / failed / denied
  */
 @theme {
   --color-ink: #0f0f0f;
-  --color-ink-2: #161616;
-  --color-ink-3: #1e1e1e;
+  --color-ink-2: #161616; /* surface */
+  --color-ink-3: #202020; /* elevated surface */
   --color-lime: #c7ff2e;
   --color-lime-dim: #9fcc25;
-  --color-charcoal: #2e2e2e;
+  --color-charcoal: #2e2e2e; /* muted surface */
   --color-mid: #808080;
+  --color-amber: #f2b94b;
   --color-coral: #ff5a36;
+  --color-line: rgb(255 255 255 / 0.09);
+  --color-line-strong: rgb(255 255 255 / 0.16);
 
   --font-display: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
-  --radius-blob: 28px;
+  /* Modest, consistent geometry. `blob` is kept as the panel radius name. */
+  --radius-blob: 12px;
+  --radius-panel: 12px;
+  --radius-control: 8px;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+:root {
+  color-scheme: dark;
+  --background: var(--color-ink);
+  --foreground: #ffffff;
+  --accent: var(--color-lime);
+  --surface: var(--color-ink-2);
+  --surface-elevated: var(--color-ink-3);
+  --surface-muted: var(--color-charcoal);
+  --text-muted: var(--color-mid);
+  --border: var(--color-line);
 }
 
 html {
-  background: var(--color-ink);
+  background: var(--background);
 }
 html,
 body {
-  color: #fff;
+  color: var(--foreground);
 }
 
 body {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
 
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+}
+
 /*
- * App-wide backdrop (public/bg.png, served as a 64 KB WebP). A fixed layer
- * rather than background-attachment: fixed, which mobile Safari ignores.
- * The gradient keeps text on the left/top readable; cards stay opaque.
+ * Operational backdrop: a faint engineering grid with a single soft light
+ * in the top-left corner. No imagery behind data. Pages that want the
+ * photographic NexLink background (sign-in, invite) opt in with .backdrop-photo.
  */
 body::before {
   content: '';
@@ -50,9 +83,16 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(100deg, rgba(15, 15, 15, 0.82) 0%, rgba(15, 15, 15, 0.55) 45%, rgba(15, 15, 15, 0.25) 100%),
+    radial-gradient(900px 520px at 0% 0%, rgb(199 255 46 / 0.045), transparent 70%),
+    linear-gradient(rgb(255 255 255 / 0.022) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.022) 1px, transparent 1px) 0 0 / 48px 48px,
+    var(--background);
+}
+body:has(.backdrop-photo)::before {
+  background:
+    linear-gradient(100deg, rgb(15 15 15 / 0.86) 0%, rgb(15 15 15 / 0.6) 45%, rgb(15 15 15 / 0.35) 100%),
     image-set(url('/bg.webp') type('image/webp'), url('/bg.png') type('image/png')) center / cover no-repeat,
-    var(--color-ink);
+    var(--background);
 }
 
 ::selection {
@@ -60,13 +100,30 @@ body::before {
   color: var(--color-ink);
 }
 
-/* Small uppercase label used across cards ("PURE WHITE" style from the palette). */
+:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 2px;
+}
+
+/* Section label: small, mono, tracked. Used for panel headers, not for everything. */
 .label {
   font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-mid);
+}
+
+/* Big numerals: tabular so changing values do not jitter. */
+.numeral {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 .scrollbar-thin {
@@ -87,25 +144,104 @@ body::before {
 
 /* Diagonal hatch = "configured / intended, not observed". */
 .hatch {
-  background-image: repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.18) 0 6px, transparent 6px 12px);
+  background-image: repeating-linear-gradient(135deg, rgb(128 128 128 / 0.16) 0 5px, transparent 5px 10px);
 }
 
+/* Corner ticks: a drafting-table detail for focal panels. */
+.ticks {
+  position: relative;
+}
+.ticks::before,
+.ticks::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  border-color: var(--color-lime);
+  opacity: 0.8;
+}
+.ticks::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+  border-top-left-radius: var(--radius-panel);
+}
+.ticks::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid;
+  border-right: 1px solid;
+  border-bottom-right-radius: var(--radius-panel);
+}
+
+/* ── Motion: short, state-driven, all disabled under reduced motion ─────── */
+
+/* Page content settles in once on navigation. */
+@keyframes enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.enter {
+  animation: enter 260ms var(--ease-out-quart) both;
+}
+
+/* A value that just changed (real data) gets a brief underline sweep. */
+@keyframes changed {
+  0% { background-size: 0% 2px; }
+  40% { background-size: 100% 2px; }
+  100% { background-size: 100% 2px; opacity: 1; }
+}
+.value-changed {
+  background: linear-gradient(var(--color-lime), var(--color-lime)) left bottom / 100% 2px no-repeat;
+  animation: changed 900ms var(--ease-out-quart) both;
+}
+
+/* A node / row whose status just changed. */
+@keyframes flash {
+  0% { box-shadow: 0 0 0 0 rgb(199 255 46 / 0.5); }
+  100% { box-shadow: 0 0 0 10px rgb(199 255 46 / 0); }
+}
+.status-flash {
+  animation: flash 1.1s ease-out 2;
+}
+
+/* Live indicator: one slow breath, only on the "live" dot. */
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(199, 255, 46, 0.55); }
-  100% { box-shadow: 0 0 0 8px rgba(199, 255, 46, 0); }
+  0% { box-shadow: 0 0 0 0 rgb(199 255 46 / 0.5); }
+  100% { box-shadow: 0 0 0 6px rgb(199 255 46 / 0); }
 }
 .pulse-lime {
-  animation: pulse-ring 1.8s ease-out infinite;
+  animation: pulse-ring 2.4s ease-out infinite;
+}
+
+/* Indeterminate progress for operations that are actually running. */
+@keyframes progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+.progress-run {
+  position: relative;
+  overflow: hidden;
+}
+.progress-run::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--color-lime), transparent);
+  animation: progress 1.2s ease-in-out infinite;
 }
 
 /* React Flow dark skin */
 .react-flow {
   --xy-background-color: transparent;
-  --xy-node-border-radius: 22px;
-  --xy-controls-button-background-color: #1e1e1e;
+  --xy-node-border-radius: 8px;
+  --xy-controls-button-background-color: #202020;
   --xy-controls-button-background-color-hover: #2e2e2e;
   --xy-controls-button-color: #fff;
-  --xy-controls-button-border-color: #2e2e2e;
+  --xy-controls-button-border-color: rgb(255 255 255 / 0.09);
   --xy-minimap-background-color: #161616;
 }
 .react-flow__attribution {
@@ -113,6 +249,21 @@ body::before {
 }
 .react-flow__attribution a {
   color: #808080 !important;
+}
+.react-flow__controls {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: none !important;
+  border: 1px solid rgb(255 255 255 / 0.09);
+}
+/* Verified tunnels: a short pulse travels along the path (direction of the handshake report). */
+.react-flow__edge.edge-verified .react-flow__edge-path {
+  stroke-dasharray: 2 14;
+  animation: sim-dash 1.6s linear infinite;
+}
+.react-flow__edge.edge-verified.edge-relay .react-flow__edge-path {
+  stroke-dasharray: 10 6;
+  animation-duration: 2.6s;
 }
 
 /* /simulation: traffic flowing along the tunnel and control links. */
@@ -125,7 +276,19 @@ body::before {
 .sim-flow-slow {
   animation: sim-dash 2.4s linear infinite;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .sim-flow,
-  .sim-flow-slow { animation: none; }
+  .sim-flow-slow,
+  .enter,
+  .value-changed,
+  .status-flash,
+  .pulse-lime,
+  .progress-run::after,
+  .react-flow__edge.edge-verified .react-flow__edge-path {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

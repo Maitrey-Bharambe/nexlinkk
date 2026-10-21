@@ -4,6 +4,17 @@ Envelope: success `{ "ok": true, "data": … }`, error `{ "ok": false, "error": 
 User API: session cookie `nx_session` + header `X-CSRF-Token` on every non-GET; `Content-Type: application/json`.
 Agent API: Ed25519 request signatures (see network-protocols.md); cookies are ignored.
 
+Everything is served by one process on one origin; there is no separate control-plane port.
+
+| Method & path | Auth | Notes |
+|---|---|---|
+| GET `/healthz` | — | process liveness only |
+| GET `/api/v1/meta` | — | `{publicUrl, relay}` — used to build invite links |
+| GET `/join.ps1?device=<id>[&share=rdp]` | — | Windows installer script (no secrets; token comes from the caller's env var) |
+| GET `/join.sh?device=<id>[&share=ssh]` | — | Linux / macOS installer script |
+| GET `/join#t=…&d=…&n=…` | — | invite page; the token stays in the fragment |
+| GET `/downloads/nexlink-agent*` | — | agent binaries (Windows, Linux amd64/arm64, macOS amd64/arm64) |
+
 ## User API (`/api/v1`)
 
 | Method & path | Permission | Notes |
@@ -23,7 +34,7 @@ Agent API: Ed25519 request signatures (see network-protocols.md); cookies are ig
 | GET `/topology?networkId=` | `networks:read` | nodes + edges (`control`, `membership`, `peer`) with observed state; device nodes carry `address` (virtual IP) and `endpoint` (first agent-reported `ip:port`, or null) |
 | GET `/devices?networkId=&status=` | `devices:read` | |
 | POST `/devices/enrollment-requests` | `devices:enroll` | `{networkId, name}` → token returned once, `Cache-Control: no-store` |
-| GET `/devices/:id` | `devices:read` | health, vpn, peer links, last 20 heartbeats, enrollment status |
+| GET `/devices/:id` | `devices:read` | health, vpn, peer links (`path: direct\|relay\|unknown`), last 20 heartbeats, enrollment status, `relay {connected, since, rxBytes, txBytes, dropped}`, `services [{name, port}]` |
 | GET `/devices/:id/history` | `devices:read` | heartbeats, incidents, audit events, memberships |
 | GET `/devices/:id/measurements?type=&limit=` | `telemetry:read` | |
 | POST `/devices/:id/revoke` | `devices:revoke` | `{reason}` |
@@ -31,6 +42,7 @@ Agent API: Ed25519 request signatures (see network-protocols.md); cookies are ig
 | GET `/devices/:id/activity?limit=` | `devices:read` | agent console: streamed agent log lines + recent commands |
 | GET `/devices/:id/actions` | `actions:read` | recent actions for this device |
 | POST `/devices/:id/actions` | `actions:request` | `{actionType, params}` from the device page — policy-checked, needs approval |
+| POST `/devices/:id/analysis` | `incidents:diagnose` | "analyze with AI": read-only tools collect evidence, the diagnostic service (Groq) explains it with an **empty action allowlist**; returns `{status: completed\|rejected\|failed, provider, result, evidence}`. Grounding-validated, audited as `device.analyze`, not stored |
 | GET `/incidents?state=active|…&deviceId=` | `incidents:read` | |
 | POST `/incidents/test` | `incidents:create_test` (admin) | explicit `[TEST]` incident, never auto-resolved |
 | GET `/incidents/:id` | `incidents:read` | evidence, diagnostic runs, actions |
@@ -51,9 +63,10 @@ Roles: **admin** = all; **operator** = networks/devices/enroll/revoke/diagnose/a
 | Method & path | Auth | Body |
 |---|---|---|
 | POST `/enroll` | token + proof signature | `{enrollmentToken, identityPublicKey, wireguardPublicKey, agentVersion, platform, timestamp, signature}` |
-| POST `/heartbeat` | signed | heartbeat schema v1 |
+| POST `/heartbeat` | signed | heartbeat schema v1; optional `services: [{name: rdp\|ssh\|vnc\|http\|https\|tcp, port}]` (≤8); capabilities may include `relay`, `remote_session` |
 | POST `/telemetry` | signed | telemetry schema v1 |
-| GET `/config` | signed | — |
+| GET `/config` | signed | — ; each peer has `endpointCandidates` (`host_reported`, `reflexive_guess`, `relay`) and `services` |
+| GET `/relay` (WebSocket) | signed upgrade | binary frames `[12-byte device id][WireGuard payload]`; see network-protocols.md §7 |
 | GET `/commands` | signed | — |
 | POST `/events` | signed | `{schemaVersion:1, deviceId, events:[{at, level, message, fields}]}` (≤100 events, ≤12 fields each) |
 | POST `/commands/:id/result` | signed | `{status, startedAt, finishedAt, output, error?, measurements[]}` |

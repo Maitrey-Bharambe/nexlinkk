@@ -5,10 +5,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { setup, FakeAgent } = require('./helpers');
-const { AuditEvent } = require('../src/database/models/audit');
-const { Network } = require('../src/database/models/network');
-const { createApp } = require('../src/app');
-const { createLogger } = require('../src/config/logger');
+const { AuditEvent } = require('../server/database/models/audit');
+const { Network } = require('../server/database/models/network');
+const { createApp } = require('../server/app');
+const { createLogger } = require('../server/config/logger');
 
 let ctx;
 test.before(async () => {

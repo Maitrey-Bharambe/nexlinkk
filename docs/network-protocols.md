@@ -63,17 +63,39 @@ work. The agent's applier accepts only IP-literal endpoints and /32 allowed IPs 
 and params against its own allowlist. Results carry measurements tagged with the command id; the control
 plane verifies from those plus fresh telemetry.
 
-## 7. NAT traversal & relay (designed, not implemented)
+## 7. NAT traversal & relay
 
-Planned interfaces:
+* **Endpoint candidates** — agents report the addresses they listen on; the control plane adds a reflexive
+  guess (source IP of the agent's HTTPS request + its WireGuard port) and, when `RELAY_ENABLED`, a
+  `relay:<deviceId>` candidate for every peer.
+* **Direct first** — a userspace agent configures each peer with its best direct candidate (same subnet,
+  then reflexive, then reported) and persistent keepalive 25 s; simultaneous outbound UDP opens most cone NATs.
+* **Relay fallback** — no handshake within 20 s → the agent sets the peer's endpoint to `relay:<id>` and
+  sends one packet into the tunnel so the handshake starts at once. While on the relay it retries direct
+  every 3 min until a handshake is fresh. A peer that receives a relayed handshake roams to the relay
+  endpoint on its own (standard WireGuard endpoint learning, authenticated by the handshake).
+* **Relay transport** — `GET /api/v1/agent/relay`, WebSocket upgrade signed exactly like any agent request
+  (canonical string over method, path, timestamp, nonce, device id, empty body). Binary frames:
+  `[12-byte device id][payload ≤ 2048 B]`. Agent → relay: id = destination; relay → agent: id = source
+  (set by the relay, never by the sender). Keepalive: a 12-byte frame every 20 s; idle > 60 s closes.
+  Forwarded only between connected devices with an active membership in the same network; per-sender
+  token bucket (`RELAY_MAX_BYTES_PER_SECOND`); excess is dropped like UDP.
+* **What the relay sees** — WireGuard messages: handshake initiations/responses and transport data,
+  all ChaCha20-Poly1305 / Noise IK. It cannot decrypt, modify undetectably, or inject packets.
+* **Connection state** — telemetry reports each peer's endpoint; `peerobservations.path` is `relay` for
+  `relay:` endpoints and `direct` for `ip:port`. Topology and device pages show it per link.
+* **Path verification** — every telemetry cycle probes each peer with a fresh handshake through the tunnel.
 
-* **Endpoint updates** — agents report candidates (done); control plane distributes them (done).
-* **Direct attempts** — both peers configure each other with candidates and persistent keepalive 25 s;
-  simultaneous outbound UDP opens most cone NATs. Success is detected only by a fresh handshake.
-* **Connection state** — `peerobservations.path` (`direct|relay|unknown`) already exists.
-* **Relay** — a UDP relay (e.g. a WireGuard hub on a public host, or DERP-style relay) with health checks;
-  `request_relay_fallback` exists in the action registry but is marked unavailable.
-* **Path verification** — a tunnel probe to the peer's tunnel address after any path change.
+Kernel / WireGuard-app mode cannot use the relay (the OS owns the UDP socket); use `--userspace` there.
+The relay keeps connections in memory: run one instance, or pin agents to instances (sticky sessions).
 
-Symmetric NAT on both sides, UDP-blocking firewalls and CGNAT can make direct paths impossible; NexLink will
-not claim universal NAT traversal.
+## 8. Remote sessions
+
+* `run --userspace --share rdp,ssh,vnc,http:3000,tcp:8080` — the agent listens on `<tunnel ip>:<port>` inside
+  its own network stack and forwards each connection to `127.0.0.1:<port>`. Shared services are reported in
+  heartbeats (`services[]`) and handed to peers in `/agent/config`.
+* The running agent serves a localhost-only API (`127.0.0.1:<random>`, bearer token in
+  `session-gateway.json` in the user's profile and state dir; requests with an `Origin` header are refused).
+  `POST /v1/forward {peer, service}` → a local listener that tunnels to the peer's shared port.
+* `nexlink-agent session <peer> <service>` calls it and starts the client: `mstsc` for rdp on Windows,
+  `ssh -o HostKeyAlias=nexlink-<peer>` for ssh, the browser for http(s). Both agents log each session.

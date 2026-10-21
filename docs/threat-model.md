@@ -31,6 +31,13 @@ the ability to change a host's WireGuard configuration · audit integrity.
 | Audit tampering via API | No write routes; only backend code records events; secret-like metadata keys redacted | ✅ tested |
 | Secrets in logs | pino redaction paths; tokens/keys never logged | ✅ |
 | Plain HTTP agent traffic | Agent refuses non-loopback `http://` unless `NEXLINK_ALLOW_HTTP=true` (lab use) | ✅ |
+| Relay used to read or inject tunnel traffic | Relay only forwards WireGuard ciphertext; it holds no WireGuard key; sender id is set by the relay from the authenticated socket | ✅ tested (relay-only tunnel, Go) |
+| Relay used to reach devices of another network | Forwarding requires both sockets to belong to active members of the same network; re-checked every 15 s | ✅ tested |
+| Revoked device keeps relaying | Revoke closes its socket immediately; new upgrades fail signature/revocation checks | ✅ tested |
+| Relay bandwidth abuse | Per-device token bucket, 2 KiB frame cap, per-IP upgrade rate limit, idle timeout | ✅ |
+| Remote session to a service the owner did not share | Listeners exist only for `--share` services, only on the tunnel address; the gateway refuses unshared services | ✅ tested |
+| Local process or web page drives the session gateway | Gateway binds 127.0.0.1, requires a random bearer token from the user's profile, refuses requests with an `Origin` header | ✅ tested |
+| Enrollment token leaked through an invite link | Token is in the URL fragment (never sent to servers or in Referer), single use, 15 min | ✅ |
 
 ## Known gaps (accepted for this milestone)
 * No TLS termination provided — run the control plane behind a TLS reverse proxy in any shared deployment.
@@ -38,4 +45,6 @@ the ability to change a host's WireGuard configuration · audit integrity.
 * No MFA, no SSO, no password reset flow.
 * Socket.IO room membership is computed at connect time; a user added to a network later needs a reconnect.
 * Rate limits are in-memory (single instance).
-* Relay/NAT traversal absent: some device pairs cannot connect directly and will show `unreachable`.
+* The relay keeps connections in memory: one instance (or sticky sessions) per deployment.
+* `session-gateway.json` relies on the user profile's file permissions (0600 on Unix; per-user profile ACLs on Windows).
+* Kernel / WireGuard-app mode has no relay fallback; such pairs need a direct UDP path.

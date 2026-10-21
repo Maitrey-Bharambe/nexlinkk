@@ -78,6 +78,12 @@ func cmdInstall(args []string) error {
 	}
 	if cfg.Userspace {
 		svcArgs = append(svcArgs, "--userspace", "--listen-port", strconv.Itoa(cfg.ListenPort))
+		if cfg.Share != "" {
+			svcArgs = append(svcArgs, "--share", cfg.Share)
+		}
+		if !cfg.Relay {
+			svcArgs = append(svcArgs, "--relay=false")
+		}
 	}
 	s, err := m.CreateService(serviceName, exe, mgr.Config{
 		DisplayName: "NexLink Agent",

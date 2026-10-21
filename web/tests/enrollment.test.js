@@ -4,8 +4,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, createUser, login, FakeAgent } = require('./helpers');
-const { EnrollmentToken, Device } = require('../src/database/models/device');
-const { AuditEvent } = require('../src/database/models/audit');
+const { EnrollmentToken, Device } = require('../server/database/models/device');
+const { AuditEvent } = require('../server/database/models/audit');
 
 let ctx;
 let op;

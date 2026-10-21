@@ -10,11 +10,11 @@
  */
 require('dotenv').config();
 const readline = require('node:readline');
-const { loadConfig } = require('../src/config/env');
-const { connectDatabase, disconnectDatabase } = require('../src/database');
-const { User, ROLES } = require('../src/database/models/identity');
-const { hashPassword } = require('../src/modules/auth/passwords');
-const { AuditEvent } = require('../src/database/models/audit');
+const { loadConfig } = require('../server/config/env');
+const { connectDatabase, disconnectDatabase } = require('../server/database');
+const { User, ROLES } = require('../server/database/models/identity');
+const { hashPassword } = require('../server/modules/auth/passwords');
+const { AuditEvent } = require('../server/database/models/audit');
 
 function arg(name) {
   const i = process.argv.indexOf(`--${name}`);

@@ -43,7 +43,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen gap-4 p-4 lg:grid-cols-[1.1fr_1fr]">
+    <div className="backdrop-photo grid min-h-screen gap-4 p-4 lg:grid-cols-[1.1fr_1fr]">
       <div className="relative hidden flex-col justify-between overflow-hidden rounded-blob bg-lime p-10 text-ink lg:flex">
         <div className="label !text-ink/60">electric lime · #C7FF2E</div>
         <div>
@@ -64,11 +64,11 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center rounded-blob border border-charcoal bg-ink-2/75 p-8 backdrop-blur-md">
+      <div className="flex items-center justify-center rounded-blob border border-line bg-ink-2/75 p-8 backdrop-blur-md">
         <form onSubmit={submit} className="w-full max-w-sm space-y-5">
           <div className="mb-6">
             <Image src="/logo-full.png" alt="NexLink — secure networks, intelligent operations" width={900} height={717} priority className="mb-6 h-auto w-52" />
-            <div className="mb-6 inline-flex rounded-full border border-charcoal p-1" role="tablist">
+            <div className="mb-6 inline-flex rounded-full border border-line p-1" role="tablist">
               {[
                 ['signin', 'sign in'],
                 ['signup', 'sign up'],

@@ -57,7 +57,7 @@ export default function AgentConsole({ deviceId }) {
             <span className={`h-1.5 w-1.5 rounded-full ${live ? 'bg-lime pulse-lime' : 'bg-mid'}`} />
             {live ? `streaming · ${timeAgo(last, now)}` : last ? `last output ${timeAgo(last, now)}` : 'no output yet'}
           </span>
-          <button onClick={() => setPaused((p) => !p)} className="rounded-full border border-charcoal p-1.5 text-mid hover:text-white" title={paused ? 'resume' : 'pause'}>
+          <button onClick={() => setPaused((p) => !p)} className="rounded-full border border-line p-1.5 text-mid hover:text-white" title={paused ? 'resume' : 'pause'}>
             {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
           </button>
         </div>
@@ -69,7 +69,7 @@ export default function AgentConsole({ deviceId }) {
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
         }}
-        className="h-80 overflow-y-auto rounded-2xl border border-charcoal bg-[#090909] p-3 font-mono text-[11.5px] leading-relaxed scrollbar-thin"
+        className="h-80 overflow-y-auto rounded-panel border border-line bg-[#090909] p-3 font-mono text-[11.5px] leading-relaxed scrollbar-thin"
       >
         {lines.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-mid">

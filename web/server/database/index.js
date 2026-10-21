@@ -9,6 +9,7 @@ const models = {
   ...require('./models/telemetry'),
   ...require('./models/incidents'),
   ...require('./models/audit'),
+  ...require('./models/insights'),
 };
 
 // Unknown filter keys are rejected instead of silently matching everything.

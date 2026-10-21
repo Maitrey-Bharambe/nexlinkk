@@ -1,6 +1,6 @@
 # Database schema (MongoDB)
 
-Models: `control-plane/src/database/models/*.js`. Indexes are created by `syncIndexes()` on startup.
+Models: `web/server/database/models/*.js`. Indexes are created by `syncIndexes()` on startup.
 
 | Collection | Key fields | Constraints / indexes | Retention |
 |---|---|---|---|

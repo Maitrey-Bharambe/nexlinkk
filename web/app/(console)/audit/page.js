@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Search, ScrollText } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
-import { Empty, ErrorState, Loading, PageHeader, inputCls } from '@/components/ui';
+import { Empty, ErrorState, Loading, PageHeader, Segmented, inputCls } from '@/components/ui';
 import StatusBadge from '@/components/StatusBadge';
 import { fmtTime, timeAgo } from '@/lib/format';
 
@@ -25,11 +25,7 @@ export default function AuditPage() {
   return (
     <div>
       <PageHeader kicker="append-only · written by the backend" title="audit log">
-        {['', 'allow', 'deny'].map((d) => (
-          <button key={d || 'all'} onClick={() => setDecision(d)} className={`rounded-full px-4 py-2 font-mono text-xs uppercase ${decision === d ? 'bg-white text-ink' : 'border border-charcoal text-mid'}`}>
-            {d || 'all'}
-          </button>
-        ))}
+        <Segmented label="Filter by decision" value={decision} onChange={setDecision} options={[['', 'all'], ['allow', 'allow'], ['deny', 'deny']]} />
       </PageHeader>
       <div className="relative mb-5 max-w-xl">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mid" />
@@ -41,16 +37,16 @@ export default function AuditPage() {
       ) : !data?.length ? (
         <Empty icon={ScrollText} title="no matching events" />
       ) : (
-        <div className="overflow-x-auto rounded-blob border border-charcoal scrollbar-thin">
+        <div className="overflow-x-auto rounded-blob border border-line scrollbar-thin">
           <table className="w-full min-w-[1000px] text-left text-sm">
             <thead>
-              <tr className="border-b border-charcoal bg-ink-2">
+              <tr className="border-b border-line bg-ink-2">
                 {['when', 'actor', 'operation', 'target', 'decision', 'outcome', 'reason / context'].map((h) => <th key={h} className="label px-4 py-3 font-normal">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {data.map((e) => (
-                <tr key={e.id} className="border-b border-charcoal/60 align-top last:border-0 hover:bg-ink-2">
+                <tr key={e.id} className="border-b border-line/60 align-top last:border-0 hover:bg-ink-2">
                   <td className="px-4 py-3 font-mono text-xs" title={fmtTime(e.at)}>{timeAgo(e.at, now)}</td>
                   <td className="px-4 py-3">
                     <div className="text-sm">{e.actor.label || e.actor.id || '—'}</div>

@@ -35,6 +35,15 @@ type Config struct {
 	// app and no Administrator rights needed. NexLink traffic (handshakes,
 	// probes, approved tests) uses the tunnel; other apps do not.
 	Userspace bool
+	// Relay lets userspace mode reach peers through the control plane when no
+	// direct UDP path works (NAT, CGNAT, firewalls). Traffic stays WireGuard-encrypted.
+	Relay bool
+	// ForceRelay skips direct paths entirely (demos, or networks where direct
+	// UDP is known to be blocked).
+	ForceRelay bool
+	// Share lists local services offered to the network for remote sessions,
+	// e.g. "rdp,ssh". Empty = nothing is shared (the default).
+	Share string
 }
 
 func env(key, def string) string {
@@ -72,6 +81,8 @@ func FromEnv() Config {
 		ProbePort:         envInt("NEXLINK_PROBE_TCP_PORT", 7946),
 		ListenPort:        envInt("NEXLINK_LISTEN_PORT", 51820),
 		Userspace:         env("NEXLINK_USERSPACE", "false") == "true",
+		Relay:             env("NEXLINK_RELAY", "true") != "false",
+		Share:             env("NEXLINK_SHARE", ""),
 	}
 }
 

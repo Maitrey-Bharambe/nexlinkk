@@ -4,8 +4,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, createUser, login, FakeAgent } = require('./helpers');
-const { Network, Membership } = require('../src/database/models/network');
-const { allocateMembership } = require('../src/modules/networks/networks.service');
+const { Network, Membership } = require('../server/database/models/network');
+const { allocateMembership } = require('../server/modules/networks/networks.service');
 const mongoose = require('mongoose');
 
 let ctx;

@@ -3,34 +3,38 @@
 ## Components
 
 ```
-            browser (operator)
-                 │  HTTPS, session cookie, CSRF header
-                 ▼
-   ┌──────────────────────────┐        Socket.IO (ids only)
-   │ frontend (Next.js :3000) │◄──────────────────────────┐
-   │  /api/v1/* → rewrite     │                           │
-   └────────────┬─────────────┘                           │
-                ▼                                         │
-   ┌──────────────────────────────────────────────────────┴──┐       ┌────────────────────┐
-   │ control plane (Express :4000)                            │──────►│ diagnostic-service │
-   │  user API  (cookie auth, RBAC, CSRF)                     │ HTTP  │ (FastAPI, optional)│
-   │  agent API (Ed25519-signed requests, separate auth path) │       └────────────────────┘
-   │  incident detector · policy engine · audit               │
-   └──────────────┬───────────────────────────────────────────┘
-                  │ MongoDB
-                  ▼
-              [ mongo ]
-
-   control traffic (HTTPS)  ▲                   ▲
-                            │                   │
-                ┌───────────┴──┐   WireGuard   ┌┴─────────────┐
-                │ agent  (Go)  │◄═════UDP═════►│ agent  (Go)  │   ← data plane: direct, peer-to-peer
-                │ wg iface     │               │ wg iface     │
-                └──────────────┘               └──────────────┘
+            browser (operator)                    invited person (any network)
+                 │  HTTPS, cookie, CSRF                │ opens /join#token, pastes one line
+                 ▼                                     ▼
+   ┌───────────────────────────────────────────────────────────────┐       ┌────────────────────┐
+   │ NexLink — one Next.js process, one port (web/server.js)        │──────►│ diagnostic-service │
+   │  console pages · /join · /join.ps1 · /join.sh · /downloads     │ HTTP  │ (FastAPI, optional)│
+   │  user API  (cookie auth, RBAC, CSRF)       Socket.IO (ids only) │       └────────────────────┘
+   │  agent API (Ed25519-signed requests, separate auth path)        │
+   │  relay     (signed WebSocket, WireGuard ciphertext only)        │
+   │  incident detector · policy engine · audit                      │
+   └──────────────┬───────────────────────────────▲──────────▲──────┘
+                  │ MongoDB                       │          │  control traffic (HTTPS)
+                  ▼                               │          │  + relay socket (WSS)
+              [ mongo ]                ┌──────────┴───┐   ┌──┴───────────┐
+                                       │ agent  (Go)  │◄═►│ agent  (Go)  │  ← data plane: WireGuard, end to end
+                                       │ home Wi-Fi   │UDP│ office / 4G  │    direct UDP when reachable,
+                                       └──────────────┘   └──────────────┘    else the same packets via the relay
 ```
 
+* **One process.** `web/server.js` mounts the Express control plane (`web/server/`), Socket.IO, the relay
+  and the Next.js console on one HTTP server. Browser calls are same-origin (no CORS, no proxy rewrite), and
+  a deployment is one container plus MongoDB ([deploy.md](deploy.md)).
 * **Control plane** holds the *desired* state (networks, memberships, addresses, peer keys) and the
-  *observed* state reported by agents. It never carries VPN packets.
+  *observed* state reported by agents. It never decrypts VPN packets: when two devices cannot reach each
+  other directly it relays their WireGuard ciphertext, holding no WireGuard key.
+* **Relay.** Agents keep one signed WebSocket to `/api/v1/agent/relay`. A frame is
+  `[12-byte peer device id][WireGuard UDP payload]`; the relay rewrites the id to the sender's and forwards
+  it to a connected device of the same network, under a per-device byte budget. Membership and revocation
+  are re-checked every 15 s and on revoke.
+* **Remote sessions.** A device owner opts in with `--share rdp,ssh,…`; the agent listens on its tunnel
+  address only and forwards to `127.0.0.1:<port>`. `nexlink-agent session <peer> rdp` on the operator's PC
+  asks its running agent (localhost API, per-user token) for a local port that tunnels to the peer.
 * **Data plane** is WireGuard between devices. NexLink does not implement cryptography or tunnelling.
 * **Agent** is the only component that touches the host. It is read-only by default; changing the WireGuard
   interface requires `NEXLINK_ENABLE_PRIVILEGED=true` on that host *and* an approved command or an explicit
@@ -41,8 +45,10 @@
   VPN app and no Administrator rights. It carries NexLink traffic only, not other applications.
 * **Agent console.** The agent tees its own log lines (Info and above, secrets redacted) to a signed
   `POST /agent/events`; the control plane stores them with a TTL and pushes them live to the device page.
-* **Access from the LAN.** With `CORS_ALLOW_PRIVATE_LAN=true` the console can be opened from another PC on a
-  private address (`http://192.168.x.y:3000`), which also serves the Windows agent download.
+* **Access from anywhere.** The portal serves the join scripts and agent downloads for Windows, Linux and
+  macOS from the same origin as the API and relay. Invite links carry the one-time token after `#`, so it
+  never reaches a server log. On a LAN the console works at `http://192.168.x.y:3000`; across networks the
+  portal is deployed at a public HTTPS address (`PUBLIC_URL`).
 
 ## Five layers of "is it connected?"
 
@@ -57,7 +63,7 @@
 A row is never inferred from the row above it. A heartbeat proves only that the agent can reach the control
 plane over HTTPS.
 
-## Health model (control-plane/src/modules/telemetry/health.js)
+## Health model (web/server/modules/telemetry/health.js)
 
 * **agent**: `online` (≤ 3× heartbeat interval), `stale` (≤ 10×), `offline`, `never_seen` — server clock only.
 * **vpn**: interface `up|down|absent|unknown` from the latest telemetry; becomes `unknown` when the report is
@@ -81,7 +87,7 @@ Incidents are `resolved` only by the detector observing the condition cleared. A
 
 ## Protocol simulation (`/simulation`)
 
-An SVG replay of the two-PC tunnel for teaching and demos. `frontend/features/simulation/engine.js`
+An SVG replay of the two-PC tunnel for teaching and demos. `web/features/simulation/engine.js`
 turns a scenario into a deterministic timeline of packets, log lines and state changes that follows
 the real protocol step by step:
 

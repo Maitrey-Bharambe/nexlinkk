@@ -15,7 +15,7 @@ const audit = require('../audit/audit.service');
  * it is validated against the same schema and grounding rules, and its
  * proposed actions still go through the policy engine.
  */
-async function callDiagnosticService({ config, incident, device, evidence }) {
+async function callDiagnosticService({ config, incident, device, evidence, allowedActions }) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), config.DIAGNOSTIC_SERVICE_TIMEOUT_MS);
   try {
@@ -34,7 +34,8 @@ async function callDiagnosticService({ config, incident, device, evidence }) {
         },
         evidence: evidence.map((x) => ({ ref: x.ref, kind: x.kind, summary: x.summary, observed_at: x.observedAt, data: x.data })),
         tools: describeTools(),
-        allowed_actions: describeActions().filter((a) => a.available).map((a) => ({ id: a.id, description: a.description, risk: a.risk })),
+        allowed_actions:
+          allowedActions ?? describeActions().filter((a) => a.available).map((a) => ({ id: a.id, description: a.description, risk: a.risk })),
       }),
     });
     if (!res.ok) {
@@ -139,4 +140,57 @@ async function runDiagnostics({ incident, user, mode, config, req }) {
   return { run, actions, toolsRun };
 }
 
-module.exports = { runDiagnostics, callDiagnosticService };
+/**
+ * On-demand AI health analysis of one device, without an incident.
+ *
+ * Same evidence (read-only tools), same diagnostic service, same schema and
+ * grounding validation as an incident diagnosis — but the allowlist is empty,
+ * so the provider can only explain, never propose an action. Nothing is
+ * stored except an audit record; the result is returned to the caller.
+ */
+async function analyzeDevice({ device, config, req }) {
+  if (!config.DIAGNOSTIC_SERVICE_URL) {
+    throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'DIAGNOSTIC_SERVICE_URL is not configured — start the diagnostic service');
+  }
+  const now = new Date();
+  const analysisId = `analysis-${device._id}-${now.getTime()}`;
+  const check = {
+    _id: analysisId,
+    category: 'health_check',
+    severity: 'low',
+    title: `Health check of ${device.name} requested by an operator (analysis only, no actions)`,
+    detectedAt: now,
+    evidence: [],
+  };
+  const { evidence, toolsRun } = await collectEvidence({ device, incident: check, config });
+
+  const finish = async (outcome, extra) => {
+    await audit.record(
+      {
+        operation: 'device.analyze',
+        target: { type: 'device', id: String(device._id), label: device.name },
+        networkId: device.networkId,
+        outcome: outcome === 'completed' ? 'success' : 'failure',
+        metadata: { evidence: evidence.length, provider: extra.provider || null },
+        reason: extra.error || null,
+      },
+      req,
+    );
+    return { id: analysisId, status: outcome, analyzedAt: now, toolsRun, evidence: evidence.map(({ ref, kind, summary, observedAt }) => ({ ref, kind, summary, observedAt })), ...extra };
+  };
+
+  let out;
+  try {
+    out = await callDiagnosticService({ config, incident: check, device, evidence, allowedActions: [] });
+  } catch (err) {
+    return finish('failed', { error: err.name === 'AbortError' ? 'diagnostic service timed out' : err.message });
+  }
+  const validated = validateDiagnosticResult(out.result, { incidentId: analysisId, evidenceRefs: evidence.map((x) => x.ref) });
+  if (!validated.ok) return finish('rejected', { provider: out.provider, error: validated.errors.slice(0, 5).join('; ') });
+  if (validated.value.proposed_actions.length) {
+    return finish('rejected', { provider: out.provider, error: 'analysis proposed actions although none are allowed' });
+  }
+  return finish('completed', { provider: out.provider, result: validated.value });
+}
+
+module.exports = { runDiagnostics, callDiagnosticService, analyzeDevice };

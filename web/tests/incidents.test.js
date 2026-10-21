@@ -5,13 +5,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, createUser, login, networkWithAgents } = require('./helpers');
-const { runDetector, evaluateConditions } = require('../src/modules/incidents/detector');
-const { validateDiagnosticResult } = require('../src/modules/diagnostics/diagnostic.schema');
-const { evaluateAction } = require('../src/modules/policies/policyEngine');
-const { proposeActions, sweepTimedOutCommands } = require('../src/modules/approvals/actions.service');
-const { Incident, ProposedAction } = require('../src/database/models/incidents');
-const { AgentCommand } = require('../src/database/models/device');
-const { AuditEvent } = require('../src/database/models/audit');
+const { runDetector, evaluateConditions } = require('../server/modules/incidents/detector');
+const { validateDiagnosticResult } = require('../server/modules/diagnostics/diagnostic.schema');
+const { evaluateAction } = require('../server/modules/policies/policyEngine');
+const { proposeActions, sweepTimedOutCommands } = require('../server/modules/approvals/actions.service');
+const { Incident, ProposedAction } = require('../server/database/models/incidents');
+const { AgentCommand } = require('../server/database/models/device');
+const { AuditEvent } = require('../server/database/models/audit');
 
 let ctx;
 let admin;

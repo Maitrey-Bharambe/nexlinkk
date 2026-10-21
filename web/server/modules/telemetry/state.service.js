@@ -105,6 +105,7 @@ function serializeDevice(d, { health, membership }) {
     agentVersion: d.agentVersion,
     platform: d.platform,
     capabilities: d.capabilities || [],
+    services: d.services || [],
     enrolledAt: d.enrolledAt,
     revokedAt: d.revokedAt,
     revocationReason: d.revocationReason,

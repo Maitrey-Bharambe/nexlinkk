@@ -23,6 +23,9 @@ const deviceSchema = new Schema(
     agentVersion: { type: String, default: null },
     platform: { type: String, default: null },
     capabilities: [{ type: String }],
+    // Local services the device owner chose to share into the tunnel for
+    // remote sessions (`nexlink-agent run --share rdp,ssh`). Reported, not set here.
+    services: [{ _id: false, name: String, port: Number }],
     enrolledAt: { type: Date, default: null },
 
     revokedAt: { type: Date, default: null },
