@@ -20,8 +20,9 @@ export function AuthProvider({ children }) {
       .catch(() => {
         setState({ user: null, loading: false });
         // Come back here after signing in (e.g. the agent's /activate?code= link).
+        // A signed-out visit to the root shows the public landing page instead.
         const here = window.location.pathname + window.location.search;
-        router.replace(here && here !== '/' ? `/login?next=${encodeURIComponent(here)}` : '/login');
+        router.replace(here && here !== '/' ? `/login?next=${encodeURIComponent(here)}` : '/welcome');
       });
   }, [router]);
 

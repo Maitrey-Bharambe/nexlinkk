@@ -437,10 +437,15 @@ body:has(.backdrop-photo)::before {
 .sim-flow-slow {
   animation: sim-dash 2.4s linear infinite;
 }
+/* /welcome: links between peers on the hero map. */
+.welcome-dash {
+  animation: sim-dash 3s linear infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .sim-flow,
   .sim-flow-slow,
+  .welcome-dash,
   .enter,
   .value-changed,
   .status-flash,

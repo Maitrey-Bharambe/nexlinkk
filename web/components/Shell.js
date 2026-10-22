@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Activity, CheckSquare, Cpu, LogOut, Menu, Network, PanelLeftClose, PanelLeftOpen, Plus, Radio, ScrollText, Share2, Sparkles, Stethoscope, X } from 'lucide-react';
+import { Activity, ArrowLeft, CheckSquare, Cpu, LogOut, Menu, Network, PanelLeftClose, PanelLeftOpen, Plus, Radio, ScrollText, Share2, Sparkles, Stethoscope, X } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { useLiveStatus } from '@/hooks/useApi';
 import { Loading } from './ui';
@@ -112,6 +112,15 @@ function NavList({ can, active, onNavigate, collapsed = false }) {
           <Plus className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden /> <span className={collapsed ? 'sr-only' : ''}>add a device</span>
         </Link>
       )}
+      {/* Back to the public landing page. */}
+      <Link
+        href="/welcome"
+        onClick={onNavigate}
+        title={collapsed ? 'home page' : undefined}
+        className={`flex h-10 items-center gap-3 whitespace-nowrap border border-line-strong ${collapsed ? 'justify-center px-0' : 'px-2.5'} font-pixel text-[9.5px] uppercase leading-none text-white/80 transition-colors duration-100 hover:border-lime hover:text-lime`}
+      >
+        <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden /> <span className={collapsed ? 'sr-only' : ''}>home page</span>
+      </Link>
     </nav>
   );
 }

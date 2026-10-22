@@ -1,6 +1,12 @@
+import { readFileSync } from 'node:fs';
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Only the version reaches the browser (shown on the sign-in page), not package.json.
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   // Allow the dev server to be opened from other PCs on a private LAN.
   allowedDevOrigins: ['192.168.*.*', '10.*.*.*', '172.16.*.*', '*.local'],
   poweredByHeader: false,
