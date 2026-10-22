@@ -25,6 +25,38 @@ const registerBody = z
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'my';
 
 /**
+ * The caller's first private network, created (with a free 10.x.0.0/24) if
+ * they have none yet. Used by "register this pc" and device-code approval.
+ */
+async function ensureUserNetwork(req) {
+  let network = await Network.findOne({ ownerId: req.user._id, status: 'active' }).sort({ createdAt: 1 });
+  let createdNetwork = false;
+  if (!network) {
+    const base = `${slug(req.user.displayName)}-net`;
+    for (let i = 0; i < 5 && !network; i++) {
+      try {
+        network = await createNetwork({ name: i ? `${base}-${i + 1}` : base, cidr: await suggestFreeCidr(), ownerId: req.user._id });
+      } catch (err) {
+        // Name taken or a concurrent create claimed the range: try again.
+        if (!['NETWORK_NAME_TAKEN', 'CIDR_OVERLAP'].includes(err.code) || i === 4) throw err;
+      }
+    }
+    createdNetwork = true;
+    await audit.record(
+      {
+        operation: 'network.create',
+        target: { type: 'network', id: String(network._id), label: network.name },
+        networkId: network._id,
+        metadata: { cidr: network.cidr, via: 'onboarding' },
+      },
+      req,
+    );
+    req.app.locals.realtime?.emitNetwork(network._id, 'network:update', { networkId: String(network._id) }, req.user._id);
+  }
+  return { network, createdNetwork };
+}
+
+/**
  * "Register this PC" for new users. The browser cannot register a computer
  * on its own — the agent must run there and generate its keys. This issues
  * the one-time token (creating the user's first private network if needed);
@@ -40,30 +72,7 @@ function onboardingRouter({ config, limits }) {
     limits.sensitive,
     validate({ body: registerBody }),
     ah(async (req, res) => {
-      let network = await Network.findOne({ ownerId: req.user._id, status: 'active' }).sort({ createdAt: 1 });
-      let createdNetwork = false;
-      if (!network) {
-        const base = `${slug(req.user.displayName)}-net`;
-        for (let i = 0; i < 5 && !network; i++) {
-          try {
-            network = await createNetwork({ name: i ? `${base}-${i + 1}` : base, cidr: await suggestFreeCidr(), ownerId: req.user._id });
-          } catch (err) {
-            // Name taken or a concurrent create claimed the range: try again.
-            if (!['NETWORK_NAME_TAKEN', 'CIDR_OVERLAP'].includes(err.code) || i === 4) throw err;
-          }
-        }
-        createdNetwork = true;
-        await audit.record(
-          {
-            operation: 'network.create',
-            target: { type: 'network', id: String(network._id), label: network.name },
-            networkId: network._id,
-            metadata: { cidr: network.cidr, via: 'onboarding' },
-          },
-          req,
-        );
-        req.app.locals.realtime?.emitNetwork(network._id, 'network:update', { networkId: String(network._id) }, req.user._id);
-      }
+      const { network, createdNetwork } = await ensureUserNetwork(req);
 
       const { device, token, expiresAt } = await createEnrollmentRequest({
         network,
@@ -98,4 +107,4 @@ function onboardingRouter({ config, limits }) {
   return r;
 }
 
-module.exports = { onboardingRouter };
+module.exports = { onboardingRouter, ensureUserNetwork };

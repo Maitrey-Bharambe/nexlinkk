@@ -9,7 +9,7 @@ const { validate } = require('../../middleware/validate');
 const { requirePermission, requireCsrf } = require('../../middleware/auth');
 const { send, ah, objectId } = require('../../utils/http');
 const { conflict, badRequest, forbidden } = require('../../utils/errors');
-const { createNetwork, serializeNetwork, bumpConfigVersion } = require('./networks.service');
+const { createNetwork, serializeNetwork, bumpConfigVersion, suggestFreeCidr } = require('./networks.service');
 const { networkScopeFilter, loadNetworkInScope, roleOnNetwork } = require('./scope');
 const { loadNetworkState, serializeDevice } = require('../telemetry/state.service');
 const audit = require('../audit/audit.service');
@@ -92,6 +92,14 @@ function networksRouter({ config, limits }) {
         throw err;
       }
     }),
+  );
+
+  // A free private range for the "create network" step. Advisory only: the
+  // create route re-validates and re-checks overlap.
+  r.get(
+    '/networks/suggest-cidr',
+    requirePermission('networks:create'),
+    ah(async (_req, res) => send(res, { cidr: await suggestFreeCidr() })),
   );
 
   r.get(

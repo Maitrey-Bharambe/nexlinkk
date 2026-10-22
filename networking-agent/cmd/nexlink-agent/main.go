@@ -1,5 +1,6 @@
 // Command nexlink-agent is the NexLink endpoint networking agent.
 //
+//	nexlink-agent join --server https://cp.example     # easiest: shows a code an operator approves in the console
 //	nexlink-agent enroll --server https://cp.example   # token read from NEXLINK_ENROLLMENT_TOKEN or stdin
 //	nexlink-agent run                                  # heartbeat / telemetry / approved commands
 //	nexlink-agent run --userspace --share rdp          # tunnel in-process; relay fallback; share Remote Desktop
@@ -17,6 +18,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -54,6 +56,8 @@ func main() {
 
 	var err error
 	switch os.Args[1] {
+	case "join":
+		err = cmdJoin(ctx, os.Args[2:])
 	case "enroll":
 		err = cmdEnroll(ctx, os.Args[2:])
 	case "run":
@@ -93,7 +97,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <enroll|run|session|status|doctor|export-config|lab|probe|apply|install|uninstall|service-status|version> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: nexlink-agent <join|enroll|run|session|status|doctor|export-config|lab|probe|apply|install|uninstall|service-status|version> [flags]")
 }
 
 // commonFlags returns a pointer: flags are parsed into this same struct later.
@@ -159,6 +163,58 @@ func cmdEnroll(ctx context.Context, args []string) error {
 	fmt.Printf("enrolled as %q (%s)\n  network  %s %s\n  address  %s\n  identity %s\n", res.DeviceName, res.DeviceID, res.Network.Name, res.Network.CIDR, res.Address, res.IdentityFingerprint)
 	fmt.Println("next: `nexlink-agent run`. No host network settings were changed.")
 	return nil
+}
+
+// cmdJoin is enrollment without a token: this computer creates its keys,
+// shows a short code, and is enrolled as soon as an operator approves the
+// code in the console (Devices → approve a code, or the printed link).
+func cmdJoin(ctx context.Context, args []string) error {
+	cfg, fs := commonFlags("join", args)
+	_ = fs.Parse(args)
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	id, err := identity.LoadOrCreate(cfg.StateDir)
+	if err != nil {
+		return err
+	}
+	if id.Enrolled() {
+		fmt.Printf("this computer is already enrolled as %q (%s)\n", id.State.DeviceName, id.State.DeviceID)
+		return nil
+	}
+	c := transport.New(cfg.ServerURL, id, "")
+	for {
+		code, err := enrollment.RequestCode(ctx, c, id, config.Version)
+		if err != nil {
+			return err
+		}
+		link := code.VerificationURL + "?code=" + code.UserCode
+		fp := id.PublicKey()
+		fmt.Println()
+		fmt.Println("  To add this computer, an operator approves this code in NexLink:")
+		fmt.Println()
+		fmt.Printf("        %s\n", spaced(code.UserCode))
+		fmt.Println()
+		fmt.Printf("  at  %s\n", link)
+		fmt.Printf("  (valid until %s · computer %q · key %s…)\n", code.ExpiresAt.Local().Format("15:04"), enrollment.Hostname(), fp[:12])
+		fmt.Println()
+		fmt.Println("  waiting for approval… (Ctrl+C to cancel)")
+		res, err := enrollment.WaitForApproval(ctx, c, id, code)
+		if errors.Is(err, enrollment.ErrExpired) {
+			fmt.Println("  the code expired; here is a new one.")
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Printf("\n  approved: enrolled as %q in %s (%s), address %s\n", res.DeviceName, res.Network.Name, res.Network.CIDR, res.Address)
+		return nil
+	}
+}
+
+// spaced renders KXRT-4P2M as "K X R T - 4 P 2 M" so it reads well aloud.
+func spaced(code string) string {
+	return strings.Join(strings.Split(code, ""), " ")
 }
 
 func cmdRun(ctx context.Context, args []string, _ *slog.Logger) error {

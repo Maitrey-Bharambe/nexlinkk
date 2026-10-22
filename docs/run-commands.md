@@ -47,8 +47,15 @@ Creates the demo-campus / demo-branch networks, enrolls demo devices with the re
 
 ## Add another computer
 
-**Devices → add a device** (or **register this pc** on the computer itself) shows one line for Windows and
-one for macOS/Linux, plus an **invite link** to send to whoever sits at that computer.
+Easiest: **add a device** (sidebar). Run its one line on the computer — the same line for every computer,
+nothing secret in it:
+
+```powershell
+irm 'http://<this PC's address>:3000/join.ps1' | iex
+```
+
+It shows a short code (e.g. `KXRT-4P2M`). Enter it on **add a device**, check the computer name, approve.
+New to NexLink? **set up** walks through network → devices → verified connectivity. Invite links still work.
 
 * **Same Wi-Fi as this PC:** open the portal there as `http://<this PC's address>:3000`. Once, on this PC,
   in PowerShell **as Administrator**: `.\scripts\lan-firewall.ps1 -Server -Agent`.

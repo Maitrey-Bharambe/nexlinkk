@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Cpu, Plus, Share2, Trash2 } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
-import { Button, Card, Empty, ErrorState, KV, Loading, Modal, PageHeader } from '@/components/ui';
+import { Button, Card, Empty, ErrorState, KV, Loading, Modal, PageHeader, SectionHeading } from '@/components/ui';
 import StatusBadge from '@/components/StatusBadge';
 import EnrollDialog from '@/features/devices/EnrollDialog';
 import DeviceTable from '@/features/devices/DeviceTable';
@@ -44,7 +44,7 @@ export default function NetworkDetail({ params }) {
   const s = n.summary;
   return (
     <div>
-      <PageHeader kicker={`network · ${n.cidr}`} title={n.name}>
+      <PageHeader kicker={`network · ${n.cidr}`} plain title={n.name}>
         <Link href={`/topology?networkId=${n.id}`}>
           <Button variant="ghost"><Share2 className="h-4 w-4" /> topology</Button>
         </Link>
@@ -69,7 +69,7 @@ export default function NetworkDetail({ params }) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card tone="lime" label="observed status">
-          <div className="text-4xl font-bold lowercase">{s.observedStatus.replace(/_/g, ' ')}</div>
+          <div className="t-title !text-[22px]">{s.observedStatus.replace(/_/g, ' ')}</div>
           <p className="mt-3 text-sm text-ink/70">
             {s.observedStatus === 'configured'
               ? 'config saved — no peer handshake observed yet.'
@@ -94,7 +94,7 @@ export default function NetworkDetail({ params }) {
         </Card>
       </div>
 
-      <h2 className="mb-4 mt-10 text-2xl font-bold lowercase">devices</h2>
+      <SectionHeading className="mt-10">devices in this network</SectionHeading>
       {n.devices.length === 0 ? (
         <Empty icon={Cpu} title="no devices in this network">issue an enrollment token, then run the agent on the machine you want to join.</Empty>
       ) : (

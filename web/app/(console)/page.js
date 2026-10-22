@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { ArrowUpRight, Check, Cpu, Sparkles, X } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
-import { Button, Card, Empty, ErrorState, Loading, Numeral, PageHeader } from '@/components/ui';
+import { Empty, ErrorState, Loading, Numeral, PageHeader } from '@/components/ui';
 import StatusBadge, { StatusMarker } from '@/components/StatusBadge';
 import { post } from '@/lib/api';
 import { humanize, timeAgo } from '@/lib/format';
@@ -32,6 +32,8 @@ function sentence(d, v, activeIncidents) {
   return `${parts.join(' · ')}. ${activeIncidents ? `${activeIncidents} incident${activeIncidents === 1 ? '' : 's'} active.` : 'no active incidents.'}`;
 }
 
+const TAPE = { healthy: 'bg-lime text-ink', degraded: 'bg-amber text-ink', unreachable: 'bg-coral text-ink', unknown: 'bg-charcoal text-white' };
+
 function HealthPanel({ d, v, data }) {
   const segments = [
     ['healthy', d.healthy, 'bg-lime', 'healthy'],
@@ -41,77 +43,76 @@ function HealthPanel({ d, v, data }) {
   ];
   const total = Math.max(1, segments.reduce((n, s) => n + s[1], 0));
   return (
-    <section className="ticks relative overflow-hidden rounded-panel border border-line bg-ink-2 p-6 md:p-7 lg:col-span-7">
-      <div className="flex items-center justify-between gap-3">
-        <div className="label">network health</div>
-        <StatusBadge state={v.state} label={v.word} />
+    <section className="pixel-corners relative border border-line-strong bg-ink-2 lg:col-span-7">
+      {/* State tape: its colour is the verdict, computed from counts only. */}
+      <div className={`flex items-center justify-between gap-3 px-5 py-2 ${TAPE[v.state] || TAPE.unknown}`}>
+        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em]">network health</span>
+        <span className="font-pixel text-[10px] uppercase">{v.word}</span>
       </div>
-
-      <div className="mt-8 flex flex-wrap items-end gap-x-6 gap-y-3">
-        <div className="text-[88px] font-semibold leading-none md:text-[112px]">
-          {/* Lime only when every check passes; otherwise the badge and bar carry the state. */}
-          <Numeral value={d.healthy} className={v.state === 'healthy' ? 'text-lime' : v.enrolled ? 'text-white' : 'text-mid'} />
-          <span className="numeral text-[44px] text-white/25 md:text-[56px]">/{v.enrolled}</span>
+      <div className="p-6 md:p-7">
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+          <div className="font-pixel text-[56px] leading-none sm:text-[76px] md:text-[92px]">
+            {/* Lime only when every check passes; otherwise the tape and bar carry the state. */}
+            <Numeral value={d.healthy} className={`!font-pixel !tracking-normal ${v.state === 'healthy' ? 'text-lime' : v.enrolled ? 'text-white' : 'text-mid'}`} />
+            <span className="text-[28px] text-white/30 sm:text-[36px] md:text-[44px]">/{v.enrolled}</span>
+          </div>
+          <p className="mb-1 max-w-xs text-sm text-white/70">
+            enrolled devices with agent online, interface up and a fresh WireGuard handshake with every peer. no evidence is never counted as healthy.
+          </p>
         </div>
-        <p className="mb-3 max-w-xs text-sm text-white/60">
-          enrolled devices with agent online, interface up and fresh WireGuard handshakes with every peer.
-        </p>
-      </div>
 
-      <div className="mt-8" aria-hidden>
-        <div className="flex h-2 gap-[3px] overflow-hidden rounded-[3px]">
-          {segments.filter((s) => s[1] > 0).map(([k, n, cls]) => (
-            <div key={k} className={`${cls} transition-[flex-grow] duration-500`} style={{ flexGrow: n / total }} />
+        <div className="mt-8" aria-hidden>
+          <div className="flex h-3 gap-[2px] border border-line p-[2px]">
+            {segments.filter((s) => s[1] > 0).map(([k, n, cls]) => (
+              <div key={k} className={`${cls} transition-[flex-grow] duration-500`} style={{ flexGrow: n / total }} />
+            ))}
+            {total === 1 && segments.every((s) => s[1] === 0) && <div className="hatch flex-1 bg-charcoal" />}
+          </div>
+        </div>
+        <ul className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-x-6 gap-y-2">
+          {segments.map(([k, n, , label]) => (
+            <li key={k} className="flex items-center gap-2 text-xs text-white/75">
+              <StatusMarker state={k} />
+              <span className="tabular font-mono text-white">{n}</span> {label}
+            </li>
           ))}
-          {total === 1 && segments.every((s) => s[1] === 0) && <div className="hatch flex-1 bg-charcoal" />}
-        </div>
-      </div>
-      <ul className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-x-6 gap-y-2">
-        {segments.map(([k, n, , label]) => (
-          <li key={k} className="flex items-center gap-2 text-xs text-white/70">
-            <StatusMarker state={k} />
-            <span className="tabular font-mono text-white">{n}</span> {label}
-          </li>
-        ))}
-      </ul>
+        </ul>
 
-      <div className="mt-7 flex flex-wrap gap-x-8 gap-y-2 border-t border-line pt-4 font-mono text-[11px] uppercase tracking-wider text-mid">
-        <span><span className="text-white">{data.networks}</span> networks</span>
-        <span><span className="text-white">{data.peerLinks.configured}</span> configured peer pairs</span>
-        <span><span className="text-white">{d.pending_enrollment}</span> awaiting enrollment</span>
+        <div className="mt-7 flex flex-wrap gap-x-8 gap-y-2 border-t border-dashed border-line pt-4 font-mono text-[11px] uppercase tracking-wider text-white/55">
+          <span><span className="text-white">{data.networks}</span> networks</span>
+          <span><span className="text-white">{data.peerLinks.configured}</span> configured peer pairs</span>
+          <span><span className="text-white">{d.pending_enrollment}</span> awaiting enrollment</span>
+        </div>
       </div>
     </section>
   );
 }
 
-function Metric({ label, value, sub, emphasis, extra }) {
-  return (
-    <div className="flex flex-col justify-between gap-6 bg-ink-2 p-5">
-      <div className="label">{label}</div>
-      <div>
-        <div className={`text-5xl font-semibold ${emphasis || ''}`}>
-          <Numeral value={value} />
-          {extra}
-        </div>
-        {sub && <div className="mt-2 text-xs text-mid">{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
+/** Metrics sized by importance: one large figure, three compact ones. */
 function Metrics({ d, data }) {
+  const small = [
+    ['networks', data.networks, `${data.peerLinks.configured} peer pairs`, 'text-white'],
+    ['degraded', d.degraded, 'outside thresholds', d.degraded ? 'text-amber' : 'text-white/35'],
+    ['unreachable', d.unreachable, d.unknown ? `+${d.unknown} without evidence` : 'offline agents', d.unreachable ? 'text-coral' : 'text-white/35'],
+  ];
   return (
-    <section className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:col-span-5">
-      <Metric label="registered devices" value={d.registered} sub={`${d.pending_enrollment} pending · ${d.revoked} revoked`} />
-      <Metric label="networks" value={data.networks} sub={`${data.peerLinks.configured} configured peer pairs`} />
-      <Metric label="degraded" value={d.degraded} sub="working, outside thresholds" emphasis={d.degraded ? 'text-amber' : 'text-white/40'} />
-      <Metric
-        label="unreachable"
-        value={d.unreachable}
-        sub="offline agents"
-        emphasis={d.unreachable ? 'text-coral' : 'text-white/40'}
-        extra={d.unknown > 0 && <span className="numeral ml-2 text-2xl text-white/35">+{d.unknown} unknown</span>}
-      />
+    <section className="flex flex-col border border-line bg-ink-2 lg:col-span-5">
+      <div className="flex flex-1 items-end justify-between gap-4 border-b border-line p-6">
+        <div>
+          <div className="label">registered devices</div>
+          <div className="mt-2 text-xs text-white/60">{d.pending_enrollment} pending · {d.revoked} revoked</div>
+        </div>
+        <Numeral value={d.registered} className="!font-pixel !tracking-normal text-[52px] leading-none md:text-[64px]" />
+      </div>
+      <dl className="grid grid-cols-3 divide-x divide-line">
+        {small.map(([label, value, sub, tone]) => (
+          <div key={label} className="p-4">
+            <dt className="label">{label}</dt>
+            <dd className={`mt-3 text-[26px] ${tone}`}><Numeral value={value} /></dd>
+            <dd className="mt-1 text-[11px] leading-snug text-white/55">{sub}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
@@ -125,7 +126,7 @@ function splitTitle(title) {
 
 function Incidents({ data, now }) {
   return (
-    <section className="rounded-panel border border-line bg-ink-2 lg:col-span-7">
+    <section className="border border-line bg-ink-2 lg:col-span-7">
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div className="label">recent incidents</div>
         <Link href="/diagnostics" className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-mid hover:text-lime">
@@ -136,6 +137,13 @@ function Incidents({ data, now }) {
         <p className="px-5 py-8 text-sm text-mid">no incidents recorded. the detector raises one only when it observes a condition.</p>
       ) : (
         <ol className="divide-y divide-line">
+          <li aria-hidden className="hidden grid-cols-[auto_minmax(0,1fr)_120px_64px_auto] gap-x-4 bg-ink px-5 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55 md:grid">
+            <span className="w-2" />
+            <span>device — event</span>
+            <span>category</span>
+            <span className="text-right">time</span>
+            <span className="w-[86px] text-right">status</span>
+          </li>
           {data.recentIncidents.map((i) => {
             const { device, what } = splitTitle(i.title);
             return (
@@ -189,28 +197,41 @@ function ApprovalRow({ a, canDecide, onDone }) {
     <li className="px-5 py-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link href={href} className="block truncate font-mono text-[13px] text-lime hover:underline">{a.actionType}</Link>
-          <div className="mt-0.5 truncate text-xs text-mid">
-            on <span className="text-white/80">{a.deviceName || a.deviceId}</span> · {a.validation?.valid ? 'policy allows' : 'policy blocks'}
+          <Link href={href} className="block truncate font-mono text-[13px] font-medium underline-offset-4 hover:underline">{a.actionType}</Link>
+          <div className="mt-0.5 truncate text-xs text-ink/70">
+            on <span className="font-medium text-ink">{a.deviceName || a.deviceId}</span> · {a.validation?.valid ? 'policy allows' : 'policy blocks'}
           </div>
         </div>
-        {a.risk && <StatusBadge state={a.risk} label={`${a.risk} risk`} />}
+        {a.risk && <span className="shrink-0 border border-ink/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider">{a.risk} risk</span>}
       </div>
       {canDecide && a.validation?.valid && (
         <div className="mt-3 flex gap-2">
-          <Button size="sm" busy={busy === 'approve'} disabled={Boolean(busy)} onClick={() => decide('approve')} aria-label={`Approve ${a.actionType} on ${a.deviceName || 'device'}`}>
-            <Check className="h-3.5 w-3.5" aria-hidden /> approve & run
-          </Button>
-          <Button size="sm" variant="ghost" busy={busy === 'reject'} disabled={Boolean(busy)} onClick={() => decide('reject')} aria-label={`Reject ${a.actionType}`}>
-            <X className="h-3.5 w-3.5" aria-hidden /> reject
-          </Button>
+          <button
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => decide('approve')}
+            aria-label={`Approve ${a.actionType} on ${a.deviceName || 'device'}`}
+            className="inline-flex h-8 items-center gap-1.5 bg-ink px-3 text-xs font-semibold text-lime transition-[transform,box-shadow] hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_0_#fff] disabled:opacity-50"
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden /> {busy === 'approve' ? 'approving…' : 'approve & run'}
+          </button>
+          <button
+            type="button"
+            disabled={Boolean(busy)}
+            onClick={() => decide('reject')}
+            aria-label={`Reject ${a.actionType}`}
+            className="inline-flex h-8 items-center gap-1.5 border border-ink px-3 text-xs font-semibold text-ink hover:bg-ink/10 disabled:opacity-50"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden /> {busy === 'reject' ? 'rejecting…' : 'reject'}
+          </button>
         </div>
       )}
-      {error && <div className="mt-2 text-xs text-coral" role="alert">{error.code}: {error.message}</div>}
+      {error && <div className="mt-2 text-xs font-medium text-ink" role="alert">⚠ {error.code}: {error.message}</div>}
     </li>
   );
 }
 
+/** The approval queue: a lime slab when something waits, quiet when empty. */
 function ApprovalQueue({ count, reloadOverview }) {
   const { can } = useAuth();
   const allowed = can('actions:read');
@@ -220,27 +241,28 @@ function ApprovalQueue({ count, reloadOverview }) {
     reload();
     reloadOverview();
   };
+  const hot = count > 0;
   return (
-    <section className={`flex flex-col rounded-panel border lg:col-span-5 ${count ? 'border-lime/40 bg-ink-2' : 'border-line bg-ink-2/60'}`}>
-      <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+    <section className={`flex flex-col border lg:col-span-5 ${hot ? 'brut-white border-lime bg-lime text-ink' : 'border-line bg-ink-2'}`}>
+      <div className={`flex items-start justify-between gap-3 border-b px-5 py-4 ${hot ? 'border-ink/20' : 'border-line'}`}>
         <div>
-          <div className="label">awaiting your approval</div>
-          <p className="mt-1 max-w-[30ch] text-xs text-mid">nothing runs without a human yes; policy is checked again at approval.</p>
+          <div className={`font-mono text-[11px] font-medium uppercase tracking-[0.16em] ${hot ? 'text-ink/70' : 'text-mid'}`}>awaiting your approval</div>
+          <p className={`mt-1 max-w-[30ch] text-xs ${hot ? 'text-ink/75' : 'text-mid'}`}>nothing runs without a human yes; policy is checked again at approval.</p>
         </div>
-        <div className={`text-5xl font-semibold ${count ? 'text-lime' : 'text-white/30'}`}><Numeral value={count} /></div>
+        <Numeral value={count} className={`!font-pixel !tracking-normal text-[40px] leading-none ${hot ? 'text-ink' : 'text-white/30'}`} />
       </div>
       {count === 0 ? (
         <p className="px-5 py-6 text-sm text-mid">queue empty.</p>
       ) : !allowed ? (
-        <p className="px-5 py-6 text-sm text-mid">you can see the count but not the actions.</p>
+        <p className="px-5 py-6 text-sm">you can see the count but not the actions.</p>
       ) : (
-        <ol className="flex-1 divide-y divide-line">
+        <ol className="flex-1 divide-y divide-ink/15">
           {items.slice(0, 3).map((a) => (
             <ApprovalRow key={a.id} a={a} canDecide={can('actions:approve:low')} onDone={done} />
           ))}
         </ol>
       )}
-      <Link href="/approvals" className="flex items-center justify-between border-t border-line px-5 py-3 font-mono text-[11px] uppercase tracking-wider text-mid hover:text-lime">
+      <Link href="/approvals" className={`flex items-center justify-between border-t px-5 py-3 font-mono text-[11px] uppercase tracking-wider ${hot ? 'border-ink/20 text-ink hover:bg-ink/10' : 'border-line text-mid hover:text-lime'}`}>
         {count > 3 ? `${count - 3} more in the queue` : 'open approvals'} <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
       </Link>
     </section>
@@ -257,12 +279,12 @@ function AiPanel({ now }) {
     .sort((x, y) => new Date(y.latest?.generatedAt || y.lastAttempt?.generatedAt) - new Date(x.latest?.generatedAt || x.lastAttempt?.generatedAt))
     .slice(0, 2);
   return (
-    <section className="rounded-panel border border-line bg-ink-2 lg:col-span-12">
+    <section className="frame-double border border-line bg-ink-2 lg:col-span-12">
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-lime" strokeWidth={1.75} aria-hidden />
           <span className="label">ai briefing</span>
-          <span className="hidden font-mono text-[10.5px] uppercase tracking-wider text-white/40 sm:inline">explains · never acts · cites evidence</span>
+          <span className="hidden font-mono text-[10.5px] uppercase tracking-wider text-white/55 sm:inline">explains · never acts · cites evidence</span>
         </div>
         <Link href="/insights" className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-mid hover:text-lime">
           ai insights <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -334,7 +356,7 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <PageHeader kicker="from agent reports" title="overview" description={sentence(d, v, data.activeIncidents)}>
+      <PageHeader kicker="from agent reports" title={'network\noverview'} description={sentence(d, v, data.activeIncidents)}>
         <div className="flex items-center gap-2 rounded-control border border-line px-3 py-2" role="status">
           <span aria-hidden className={`h-1.5 w-1.5 ${stale ? 'rotate-45 bg-amber' : 'rounded-full bg-lime'}`} />
           <span className={`font-mono text-[11px] uppercase tracking-wider ${stale ? 'text-amber' : 'text-mid'}`}>

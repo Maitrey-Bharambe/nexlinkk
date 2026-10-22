@@ -64,6 +64,8 @@ const diagnosticRunSchema = new Schema(
     startedAt: { type: Date, required: true },
     completedAt: { type: Date, default: null },
     evidence: [evidenceSchema],
+    // Which read-only checks ran, how many evidence items each produced.
+    toolsRun: [{ _id: false, tool: String, ok: Boolean, error: String, items: Number, refs: [String], startedAt: Date, ms: Number }],
     // Validated against the structured diagnostic schema before storage.
     result: { type: Schema.Types.Mixed, default: null },
     validationErrors: [{ type: String }],

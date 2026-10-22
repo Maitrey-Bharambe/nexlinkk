@@ -12,6 +12,42 @@ import AgentConsole from '@/features/devices/AgentConsole';
 import DeviceActions from '@/features/devices/DeviceActions';
 import AiAnalysis from '@/features/devices/AiAnalysis';
 import RemoteSession from '@/features/devices/RemoteSession';
+import Observatory from '@/features/devices/Observatory';
+
+const SECTIONS = [
+  ['identity', 'A', 'identity'],
+  ['connection', 'B', 'connection'],
+  ['performance', 'C', 'performance'],
+  ['events', 'D', 'events'],
+  ['actions', 'E', 'actions'],
+];
+
+/** Jump index for the inspection workspace. */
+function SectionIndex() {
+  return (
+    <nav aria-label="Device sections" className="sticky top-12 z-20 -mx-4 mb-6 flex gap-px overflow-x-auto border-y border-line bg-ink px-4 scrollbar-thin md:-mx-10 md:px-10">
+      {SECTIONS.map(([id, letter, label]) => (
+        <a key={id} href={`#${id}`} className="flex shrink-0 items-center gap-2 px-3 py-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-white/65 hover:bg-white/[0.04] hover:text-white">
+          <span className="font-pixel text-[9px] text-lime">{letter}</span>
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function Section({ id, letter, title, children }) {
+  return (
+    <section id={id} className="mb-10 scroll-mt-28" aria-labelledby={`${id}-title`}>
+      <div className="mb-4 flex items-center gap-3">
+        <span aria-hidden className="grid h-7 w-7 place-items-center bg-lime font-pixel text-[11px] text-ink">{letter}</span>
+        <h2 id={`${id}-title`} className="font-mono text-xs font-medium uppercase tracking-[0.18em]">{title}</h2>
+        <span aria-hidden className="h-px flex-1 bg-line" />
+      </div>
+      {children}
+    </section>
+  );
+}
 
 const RAIL = { good: 'bg-lime', progress: 'bg-lime/40', warn: 'bg-amber', bad: 'bg-coral', info: 'bg-white/50', none: 'bg-charcoal' };
 
@@ -92,7 +128,7 @@ export default function DeviceDetail({ params }) {
 
   return (
     <div>
-      <PageHeader kicker={`device · ${d.id}`} title={d.name}>
+      <PageHeader kicker={`device · ${d.id}`} plain title={d.name}>
         <StatusBadge state={h?.status || 'unknown'} size="lg" pulse />
         {can('devices:membership') && d.membership?.status === 'active' && (
           <Button variant="ghost" onClick={removeMembership}><Unlink className="h-4 w-4" /> remove from network</Button>
@@ -104,79 +140,57 @@ export default function DeviceDetail({ params }) {
       <RevokeDialog open={revokeOpen} onClose={() => setRevokeOpen(false)} deviceId={deviceId} onDone={reload} />
       <ErrorState error={actionError} />
 
-      {h?.reasons?.length > 0 && (
-        <div className="mb-4 rounded-panel border border-line bg-ink-2 px-5 py-3 text-sm">
-          <span className="label mr-2">why</span>
-          {h.reasons.join(' · ')}
-        </div>
-      )}
+      <SectionIndex />
 
-      {/* Three independent signals: control channel, interface, tunnels. */}
-      <div className="grid gap-px overflow-hidden rounded-panel border border-line bg-line md:grid-cols-3">
-        <SignalCard title="1 · agent ↔ control plane" state={h?.agent?.status || 'unknown'}>
-          <div>last heartbeat <b className="font-mono font-medium">{timeAgo(d.lastHeartbeatAt, now) || 'never'}</b></div>
-          <div className="text-xs text-mid">proves the agent can reach us over https. says nothing about the tunnel.</div>
-        </SignalCard>
-        <SignalCard title="2 · wireguard interface" state={h?.vpn?.state || 'unknown'}>
-          <div>{d.vpn?.interfaceName || 'no interface reported'} {d.vpn?.listenPort ? `· udp/${d.vpn.listenPort}` : ''}</div>
-          <div className="text-xs text-mid">
-            source: {d.vpn?.source || 'none'} · <Freshness at={d.vpn?.observedAt} now={now} staleAfterSec={300} />
-            {d.vpn?.keyMatches === false && <span className="text-coral"> · key mismatch!</span>}
+      <Section id="identity" letter="A" title="device identity">
+        {h?.reasons?.length > 0 && (
+          <div className="mb-4 border border-line bg-ink-2 px-5 py-3 text-sm">
+            <span className="label mr-2">why</span>
+            {h.reasons.join(' · ')}
           </div>
-        </SignalCard>
-        <SignalCard title="3 · peer tunnels" state={d.peerLinks.length ? (d.peerLinks.every((l) => l.state === 'connected') ? 'connected' : d.peerLinks.some((l) => l.state === 'connected') ? 'degraded' : d.peerLinks[0].state) : 'unknown'}>
-          <div>{d.peerLinks.filter((l) => l.state === 'connected').length}/{d.peerLinks.length} peers with a fresh handshake</div>
-          <div className="text-xs text-mid">last handshake: {h?.lastHandshakeAt ? timeAgo(h.lastHandshakeAt, now) : 'never observed'}</div>
-        </SignalCard>
-      </div>
-
-      <AiAnalysis deviceId={deviceId} canRun={can('incidents:diagnose')} now={now} />
-
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <Card label="identity & membership">
-          <KV k="enrollment"><StatusBadge state={d.enrollmentState} /></KV>
-          <KV k="virtual ip" mono>{d.membership ? `${d.membership.address} (${d.membership.status})` : 'unassigned'}</KV>
-          <KV k="identity key" mono>{d.identityFingerprint ? `${d.identityFingerprint.slice(0, 22)}…` : '—'}</KV>
-          <KV k="wireguard key" mono>{d.wireguardFingerprint ? `${d.wireguardFingerprint.slice(0, 22)}…` : '—'}</KV>
-          <KV k="agent" mono>{d.agentVersion || '—'} · {d.platform || '—'}</KV>
-          <KV k="capabilities" mono>{d.capabilities.length ? d.capabilities.join(', ') : '—'}</KV>
-          <KV k="shares" mono>{d.services?.length ? d.services.map((s) => `${s.name}:${s.port}`).join(', ') : 'nothing'}</KV>
-          <KV k="endpoints" mono>{d.endpoints?.reported?.length ? d.endpoints.reported.join(', ') : 'none reported'}</KV>
-          <KV k="enrolled">{fmtTime(d.enrolledAt)}</KV>
-          {d.enrollmentState === 'pending' && <KV k="token">{d.enrollment.state}{d.enrollment.expiresAt ? ` · until ${new Date(d.enrollment.expiresAt).toLocaleTimeString()}` : ''}</KV>}
-          {d.revokedAt && <KV k="revoked">{fmtTime(d.revokedAt)} — {d.revocationReason}</KV>}
-        </Card>
-
-        <Card label="peer links (observed)">
-          {d.peerLinks.length === 0 ? (
-            <p className="text-sm text-mid">no configured peers. a link appears when another active device joins this network.</p>
-          ) : (
-            <ul className="divide-y divide-charcoal">
-              {d.peerLinks.map((l) => (
-                <li key={l.id} className="flex items-center justify-between gap-3 py-3">
-                  <div>
-                    <div className="font-semibold">{l.peerName || l.peerDeviceId}</div>
-                    <div className="font-mono text-[11px] text-mid">
-                      path {l.path} · handshake {l.lastHandshakeAt ? timeAgo(l.lastHandshakeAt, now) : 'never'} {l.reason ? `· ${l.reason}` : ''}
-                    </div>
-                  </div>
-                  <StatusBadge state={l.state} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <AgentConsole deviceId={deviceId} />
-        <div className="space-y-4">
+        )}
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Card label="identity & membership">
+            <KV k="enrollment"><StatusBadge state={d.enrollmentState} /></KV>
+            <KV k="virtual ip" mono>{d.membership ? `${d.membership.address} (${d.membership.status})` : 'unassigned'}</KV>
+            <KV k="identity key" mono>{d.identityFingerprint ? `${d.identityFingerprint.slice(0, 22)}…` : '—'}</KV>
+            <KV k="wireguard key" mono>{d.wireguardFingerprint ? `${d.wireguardFingerprint.slice(0, 22)}…` : '—'}</KV>
+            <KV k="agent" mono>{d.agentVersion || '—'} · {d.platform || '—'}</KV>
+            <KV k="capabilities" mono>{d.capabilities.length ? d.capabilities.join(', ') : '—'}</KV>
+            <KV k="shares" mono>{d.services?.length ? d.services.map((s) => `${s.name}:${s.port}`).join(', ') : 'nothing'}</KV>
+            <KV k="endpoints" mono>{d.endpoints?.reported?.length ? d.endpoints.reported.join(', ') : 'none reported'}</KV>
+            <KV k="enrolled">{fmtTime(d.enrolledAt)}</KV>
+            {d.enrollmentState === 'pending' && <KV k="token">{d.enrollment.state}{d.enrollment.expiresAt ? ` · until ${new Date(d.enrollment.expiresAt).toLocaleTimeString()}` : ''}</KV>}
+            {d.revokedAt && <KV k="revoked">{fmtTime(d.revokedAt)} — {d.revocationReason}</KV>}
+          </Card>
           <RemoteSession device={d} now={now} />
-          <DeviceActions device={d} canRequest={can('actions:request')} canDecide={can('actions:approve:low')} />
         </div>
-      </div>
+      </Section>
 
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+      <Section id="connection" letter="B" title="connection state">
+        {/* Three independent signals: control channel, interface, tunnels. */}
+        <div className="grid gap-px overflow-hidden border border-line-strong bg-line md:grid-cols-3">
+          <SignalCard title="1 · agent ↔ control plane" state={h?.agent?.status || 'unknown'}>
+            <div>last heartbeat <b className="font-mono font-medium">{timeAgo(d.lastHeartbeatAt, now) || 'never'}</b></div>
+            <div className="text-xs text-mid">proves the agent can reach us over https. says nothing about the tunnel.</div>
+          </SignalCard>
+          <SignalCard title="2 · wireguard interface" state={h?.vpn?.state || 'unknown'}>
+            <div>{d.vpn?.interfaceName || 'no interface reported'} {d.vpn?.listenPort ? `· udp/${d.vpn.listenPort}` : ''}</div>
+            <div className="text-xs text-mid">
+              source: {d.vpn?.source || 'none'} · <Freshness at={d.vpn?.observedAt} now={now} staleAfterSec={300} />
+              {d.vpn?.keyMatches === false && <span className="text-coral"> · key mismatch!</span>}
+            </div>
+          </SignalCard>
+          <SignalCard title="3 · peer tunnels" state={d.peerLinks.length ? (d.peerLinks.every((l) => l.state === 'connected') ? 'connected' : d.peerLinks.some((l) => l.state === 'connected') ? 'degraded' : d.peerLinks[0].state) : 'unknown'}>
+            <div>{d.peerLinks.filter((l) => l.state === 'connected').length}/{d.peerLinks.length} peers with a fresh handshake</div>
+            <div className="text-xs text-mid">last handshake: {h?.lastHandshakeAt ? timeAgo(h.lastHandshakeAt, now) : 'never observed'}</div>
+          </SignalCard>
+        </div>
+      </Section>
+
+      <Section id="performance" letter="C" title="performance">
+        <Observatory deviceId={deviceId} now={now} />
+        <div className="mt-4">
         <Card label="measurements (latest 25)">
           {!measurements?.length ? (
             <p className="text-sm text-mid">not measured yet.</p>
@@ -192,6 +206,12 @@ export default function DeviceDetail({ params }) {
             </ul>
           )}
         </Card>
+        </div>
+      </Section>
+
+      <Section id="events" letter="D" title="recent events">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <AgentConsole deviceId={deviceId} />
         <Card label="connection history">
           {!history ? (
             <Loading />
@@ -220,7 +240,17 @@ export default function DeviceDetail({ params }) {
             </ul>
           )}
         </Card>
-      </div>
+        </div>
+      </Section>
+
+      <Section id="actions" letter="E" title="actions">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <DeviceActions device={d} canRequest={can('actions:request')} canDecide={can('actions:approve:low')} />
+          <div>
+            <AiAnalysis deviceId={deviceId} canRun={can('incidents:diagnose')} now={now} />
+          </div>
+        </div>
+      </Section>
     </div>
   );
 }

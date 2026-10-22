@@ -134,6 +134,20 @@ const enrollSchema = z
   })
   .strict();
 
+const deviceCodeStartSchema = z
+  .object({
+    identityPublicKey: z.string().max(64),
+    wireguardPublicKey: wgKey,
+    hostname: z.string().trim().min(1).max(64),
+    agentVersion: z.string().max(32),
+    platform: z.string().max(32),
+    timestamp: z.number().int(),
+    signature: z.string().max(128),
+  })
+  .strict();
+
+const deviceCodePollSchema = z.object({ deviceCode: z.string().regex(/^nxd_[A-Za-z0-9_-]{43}$/, 'Malformed device code') }).strict();
+
 // Agent log lines streamed to the console's "agent console" panel.
 const agentEventsSchema = z
   .object({
@@ -168,4 +182,6 @@ module.exports = {
   telemetrySchema,
   commandResultSchema,
   enrollSchema,
+  deviceCodeStartSchema,
+  deviceCodePollSchema,
 };

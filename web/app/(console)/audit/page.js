@@ -47,14 +47,14 @@ export default function AuditPage() {
             <tbody>
               {data.map((e) => (
                 <tr key={e.id} className="border-b border-line/60 align-top last:border-0 hover:bg-ink-2">
-                  <td className="px-4 py-3 font-mono text-xs" title={fmtTime(e.at)}>{timeAgo(e.at, now)}</td>
+                  <td className="t-data whitespace-nowrap px-4 py-3 text-xs" title={fmtTime(e.at)}>{timeAgo(e.at, now)}</td>
                   <td className="px-4 py-3">
                     <div className="text-sm">{e.actor.label || e.actor.id || '—'}</div>
                     <div className="font-mono text-[10px] uppercase text-mid">{e.actor.type}</div>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-lime">{e.operation}</td>
                   <td className="px-4 py-3 text-xs">
-                    {e.target?.type ? <><span className="text-mid">{e.target.type}</span> {e.target.label || e.target.id}</> : '—'}
+                    {e.target?.type ? <><span className="label !text-[10px]">{e.target.type}</span> <span className="t-data">{e.target.label || e.target.id}</span></> : '—'}
                   </td>
                   <td className="px-4 py-3"><StatusBadge state={e.decision} /></td>
                   <td className="px-4 py-3"><StatusBadge state={e.outcome === 'pending' ? 'queued' : e.outcome} label={e.outcome} /></td>

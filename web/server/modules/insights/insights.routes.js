@@ -9,6 +9,7 @@ const { send, ah, objectId } = require('../../utils/http');
 const { conflict, notFound } = require('../../utils/errors');
 const { visibleNetworkIds } = require('../networks/scope');
 const { computeAnalytics, generateBriefing, serializeBriefing, latestBriefings } = require('./insights.service');
+const { aiConfigured } = require('../diagnostics/diagnostics.service');
 
 const query = z.object({ networkId: objectId.optional() }).strict();
 const body = z.object({ networkId: objectId }).strict();
@@ -45,8 +46,9 @@ function insightsRouter({ config, limits }) {
           lastAttempt: b.lastAttempt && b.lastAttempt.status !== 'completed' ? serializeBriefing(b.lastAttempt, byId.get(b.networkId)) : null,
         })),
         ai: {
-          configured: Boolean(config.DIAGNOSTIC_SERVICE_URL),
-          scheduleMinutes: config.DIAGNOSTIC_SERVICE_URL ? config.BRIEFING_INTERVAL_MINUTES : 0,
+          configured: aiConfigured(config),
+          provider: config.DIAGNOSTIC_SERVICE_URL ? 'diagnostic-service' : config.GROQ_API_KEY ? 'built-in' : null,
+          scheduleMinutes: aiConfigured(config) ? config.BRIEFING_INTERVAL_MINUTES : 0,
         },
       });
     }),
@@ -59,7 +61,7 @@ function insightsRouter({ config, limits }) {
     limits.sensitive,
     validate({ body }),
     ah(async (req, res) => {
-      if (!config.DIAGNOSTIC_SERVICE_URL) throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'DIAGNOSTIC_SERVICE_URL is not configured — start the diagnostic service');
+      if (!aiConfigured(config)) throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'No AI provider configured — set GROQ_API_KEY');
       const visible = await visibleNetworkIds(req.user);
       if (!visible.some((x) => String(x) === req.valid.body.networkId)) throw notFound('Network');
       const network = await Network.findById(req.valid.body.networkId).lean();

@@ -27,14 +27,14 @@ export default function JoinPage() {
       <Image src="/logo-full.png" alt="NexLink" width={900} height={717} priority className="h-auto w-40" />
       {invite === undefined ? null : !invite ? (
         <section className="rounded-blob border border-line bg-ink-2 p-8">
-          <h1 className="text-3xl font-bold lowercase">this invite link is incomplete<span className="text-lime">.</span></h1>
+          <h1 className="t-title">invite link incomplete<span className="text-lime">.</span></h1>
           <p className="mt-3 text-sm text-mid">copy the whole link again (everything after the #), or ask for a new invite.</p>
         </section>
       ) : (
         <>
           <section className="rounded-blob bg-lime p-8 text-ink">
             <div className="label !text-ink/60 mb-2">you&apos;re invited</div>
-            <h1 className="text-4xl font-bold leading-tight tracking-tight lowercase md:text-5xl">
+            <h1 className="t-title">
               connect {invite.name ? <span className="italic">{invite.name}</span> : 'this computer'} to a private network.
             </h1>
             <p className="mt-4 max-w-xl text-ink/75">

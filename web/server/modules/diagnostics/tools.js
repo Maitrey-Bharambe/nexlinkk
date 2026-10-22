@@ -4,6 +4,7 @@ const { Heartbeat, Measurement, PeerObservation } = require('../../database/mode
 const { Incident } = require('../../database/models/incidents');
 const { AuditEvent } = require('../../database/models/audit');
 const { loadNetworkState } = require('../telemetry/state.service');
+const { currentRelay } = require('../relay/relay');
 
 /**
  * Read-only diagnostic tool registry. These are the ONLY data sources a
@@ -103,9 +104,16 @@ const TOOLS = {
     },
   },
   check_relay_health: {
-    description: 'Relay availability',
-    async run() {
-      return [e('relay:none', 'relay', 'No relay is deployed; relay fallback is unavailable', null, { available: false })];
+    description: 'Encrypted relay: is this device connected to it, how much it relayed, which tunnels use it',
+    async run({ device, state, config }) {
+      const id = String(device._id);
+      if (!config.RELAY_ENABLED) return [e(`relay:${id}`, 'relay', 'Relay disabled by configuration; only direct UDP paths are possible', null, { enabled: false })];
+      const st = currentRelay()?.status(id) || { connected: false };
+      const viaRelay = state.links.filter((l) => (l.source === id || l.target === id) && l.path === 'relay').length;
+      const summary = st.connected
+        ? `Agent connected to the relay since ${new Date(st.since).toISOString()}; ${st.rxBytes + st.txBytes} bytes relayed, ${st.dropped} frames dropped; ${viaRelay} tunnel(s) currently via relay`
+        : `Agent not connected to the relay (userspace agents connect automatically; kernel/WireGuard-app mode cannot use it); ${viaRelay} tunnel(s) via relay`;
+      return [e(`relay:${id}`, 'relay', summary, st.since || null, { enabled: true, connected: st.connected, dropped: st.dropped ?? null, tunnelsViaRelay: viaRelay })];
     },
   },
 };
@@ -115,11 +123,13 @@ async function collectEvidence({ device, incident, config }) {
   const evidence = [];
   const toolsRun = [];
   for (const [name, tool] of Object.entries(TOOLS)) {
+    const startedAt = new Date();
     try {
-      evidence.push(...(await tool.run({ device, incident, state })));
-      toolsRun.push({ tool: name, ok: true });
+      const items = await tool.run({ device, incident, state, config });
+      evidence.push(...items);
+      toolsRun.push({ tool: name, ok: true, items: items.length, refs: items.map((x) => x.ref).slice(0, 50), startedAt, ms: Date.now() - startedAt });
     } catch (err) {
-      toolsRun.push({ tool: name, ok: false, error: err.message });
+      toolsRun.push({ tool: name, ok: false, error: err.message.slice(0, 200), items: 0, refs: [], startedAt, ms: Date.now() - startedAt });
     }
   }
   // Incident's own detection evidence is citable too.

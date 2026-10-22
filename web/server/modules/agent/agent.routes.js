@@ -9,10 +9,11 @@ const { validate } = require('../../middleware/validate');
 const { send, ah, objectId } = require('../../utils/http');
 const { notFound, conflict, badRequest } = require('../../utils/errors');
 const { z } = require('zod');
-const { heartbeatSchema, telemetrySchema, commandResultSchema, enrollSchema, agentEventsSchema } = require('../telemetry/telemetry.schema');
+const { heartbeatSchema, telemetrySchema, commandResultSchema, enrollSchema, agentEventsSchema, deviceCodeStartSchema, deviceCodePollSchema } = require('../telemetry/telemetry.schema');
 const { AgentEvent } = require('../../database/models/telemetry');
 const { recordHeartbeat, recordTelemetry, ingestMeasurements } = require('../telemetry/telemetry.service');
 const { completeEnrollment } = require('../enrollment/enrollment.service');
+const { startDeviceCode, pollDeviceCode } = require('../enrollment/deviceCode.service');
 const { finalizeCommand } = require('../approvals/actions.service');
 const audit = require('../audit/audit.service');
 
@@ -79,6 +80,47 @@ function agentRouter({ config, limits }) {
         },
         201,
       );
+    }),
+  );
+
+  // "Join with a code": the agent shows a short code, an operator approves it
+  // in the console, the agent polls until it is enrolled. No token to copy.
+  r.post(
+    '/device-code',
+    limits.enrollment,
+    validate({ body: deviceCodeStartSchema }),
+    ah(async (req, res) => {
+      const out = await startDeviceCode(req.valid.body, { config, ip: req.ip });
+      const base = config.PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+      res.set('Cache-Control', 'no-store');
+      send(res, { ...out, verificationUrl: `${base}/activate` }, 201);
+    }),
+  );
+
+  r.post(
+    '/device-code/poll',
+    limits.agent,
+    validate({ body: deviceCodePollSchema }),
+    ah(async (req, res) => {
+      const out = await pollDeviceCode(req.valid.body.deviceCode);
+      if (out.status !== 'approved') return send(res, out);
+      // Same payload as /enroll, so the agent stores state the same way.
+      const device = await Device.findById(out.deviceId).lean();
+      const membership = await Membership.findOne({ deviceId: device._id, status: 'active' }).lean();
+      const network = membership && (await Network.findById(membership.networkId).lean());
+      if (!device || device.enrollmentState !== 'enrolled' || !network) return send(res, { status: 'denied' });
+      res.set('Cache-Control', 'no-store');
+      send(res, {
+        status: 'approved',
+        enrollment: {
+          deviceId: String(device._id),
+          deviceName: device.name,
+          identityFingerprint: device.identityFingerprint,
+          network: { id: String(network._id), name: network.name, cidr: network.cidr },
+          address: membership.address,
+          heartbeatIntervalSeconds: config.HEARTBEAT_INTERVAL_SECONDS,
+        },
+      });
     }),
   );
 

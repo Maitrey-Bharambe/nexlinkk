@@ -61,7 +61,6 @@ async function completeEnrollment(input, { clockSkewSec }) {
   }
 
   const identityFingerprint = keyFingerprint(identityRaw);
-  const wireguardFingerprint = keyFingerprint(wgRaw);
 
   // Atomic single-use consumption: replaying the same token fails here.
   const now = new Date();
@@ -84,19 +83,31 @@ async function completeEnrollment(input, { clockSkewSec }) {
   const network = await Network.findOne({ _id: tokenDoc.networkId, status: 'active' });
   if (!network) throw conflict('NETWORK_UNAVAILABLE', 'Target network no longer active');
 
-  if (await Device.exists({ identityFingerprint })) {
+  return bindIdentity({ device, network, identityRaw, wgRaw, agentVersion: input.agentVersion, platform: input.platform, now });
+}
+
+/** Fails if either public key already belongs to an enrolled device. */
+async function assertKeysUnused(identityRaw, wgRaw) {
+  if (await Device.exists({ identityFingerprint: keyFingerprint(identityRaw) })) {
     throw conflict('DUPLICATE_IDENTITY', 'This agent identity is already enrolled as another device');
   }
   if (await Device.exists({ wireguardPublicKey: wgRaw.toString('base64') })) {
     throw conflict('DUPLICATE_WIREGUARD_KEY', 'This WireGuard public key is already registered');
   }
+}
 
+/**
+ * Binds proven public keys to a pending device and gives it an address. Shared
+ * by token enrollment and device-code approval: same checks, same result.
+ */
+async function bindIdentity({ device, network, identityRaw, wgRaw, agentVersion, platform, now = new Date() }) {
+  await assertKeysUnused(identityRaw, wgRaw);
   device.identityPublicKey = identityRaw.toString('base64');
-  device.identityFingerprint = identityFingerprint;
+  device.identityFingerprint = keyFingerprint(identityRaw);
   device.wireguardPublicKey = wgRaw.toString('base64');
-  device.wireguardFingerprint = wireguardFingerprint;
-  device.agentVersion = input.agentVersion;
-  device.platform = input.platform;
+  device.wireguardFingerprint = keyFingerprint(wgRaw);
+  device.agentVersion = agentVersion;
+  device.platform = platform;
   device.enrollmentState = 'enrolled';
   device.enrolledAt = now;
   await device.save();
@@ -105,4 +116,4 @@ async function completeEnrollment(input, { clockSkewSec }) {
   return { device, network, membership };
 }
 
-module.exports = { createEnrollmentRequest, completeEnrollment, enrollmentStatus, enrollmentMessage };
+module.exports = { createEnrollmentRequest, completeEnrollment, enrollmentStatus, enrollmentMessage, bindIdentity, assertKeysUnused };

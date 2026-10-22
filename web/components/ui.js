@@ -4,20 +4,38 @@ import { AlertTriangle, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Shared primitives. Panels are flat surfaces with a hairline border and a
- * modest radius; lime is reserved for primary actions and verified state.
+ * Shared primitives. Square panels with crisp borders on a technical grid;
+ * lime is a surface or a signal (actions, active, verified), never a glow.
  */
 
-export function PageHeader({ kicker, title, children, description }) {
+/**
+ * Page title. Short, fixed titles use the pixel display face (`title` may
+ * contain a line break, e.g. "network
+overview"); dynamic titles such as
+ * device names or incident titles pass `plain` and stay in a readable sans.
+ */
+export function PageHeader({ kicker, title, children, description, plain = false }) {
   return (
     <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-line pb-6">
       <div className="min-w-0">
-        {kicker && <div className="label mb-3">{kicker}</div>}
-        <h1 className="text-3xl font-semibold tracking-tight lowercase md:text-[40px] md:leading-[1.05]">
-          {title}
-          <span className="text-lime">.</span>
-        </h1>
-        {description && <p className="mt-3 max-w-2xl text-sm text-white/65">{description}</p>}
+        {kicker && (
+          <div className="label mb-3 flex items-center gap-2">
+            <span aria-hidden className="inline-block h-2 w-2 bg-lime" />
+            {kicker}
+          </div>
+        )}
+        {plain ? (
+          <h1 className="break-words text-2xl font-semibold tracking-tight md:text-[34px] md:leading-[1.1]">
+            {title}
+            <span className="text-lime">.</span>
+          </h1>
+        ) : (
+          <h1 className="t-title whitespace-pre-line">
+            {title}
+            <span className="text-lime">.</span>
+          </h1>
+        )}
+        {description && <p className="mt-3 max-w-2xl text-sm text-white/70">{description}</p>}
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
@@ -28,7 +46,7 @@ export function PageHeader({ kicker, title, children, description }) {
 export function SectionHeading({ children, action, className = '' }) {
   return (
     <div className={`mb-3 flex items-center justify-between gap-3 ${className}`}>
-      <h2 className="text-lg font-semibold lowercase tracking-tight">{children}</h2>
+      <h2 className="t-section">{children}</h2>
       {action}
     </div>
   );
@@ -36,19 +54,27 @@ export function SectionHeading({ children, action, className = '' }) {
 
 const CARD_TONES = {
   default: 'bg-ink-2 border border-line',
+  report: 'bg-ink-2 border border-line-strong frame-double',
   lime: 'bg-lime text-ink',
   white: 'bg-white text-ink',
   charcoal: 'bg-ink-3 border border-line',
   flat: 'border border-line',
 };
 
-export function Card({ tone = 'default', className = '', children, label, action }) {
+/**
+ * Panel. `label` is a compact mono eyebrow; `title` adds a pixel section
+ * title under it (use for the main panels of a page, not every box).
+ */
+export function Card({ tone = 'default', className = '', children, label, title, action }) {
   const dark = tone === 'lime' || tone === 'white';
   return (
     <section className={`rounded-panel p-5 ${CARD_TONES[tone] || CARD_TONES.default} ${className}`}>
-      {(label || action) && (
-        <div className="mb-4 flex items-center justify-between gap-3">
-          {label && <div className={`label ${dark ? '!text-ink/60' : ''}`}>{label}</div>}
+      {(label || title || action) && (
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {label && <div className={`label ${dark ? '!text-ink/60' : ''}`}>{label}</div>}
+            {title && <h2 className={`t-section ${label ? 'mt-1.5' : ''}`}>{title}</h2>}
+          </div>
           {action}
         </div>
       )}
@@ -59,8 +85,9 @@ export function Card({ tone = 'default', className = '', children, label, action
 
 export function Button({ variant = 'lime', size = 'md', className = '', busy, children, ...props }) {
   const v = {
-    lime: 'bg-lime text-ink hover:bg-white',
-    white: 'bg-white text-ink hover:bg-lime',
+    // Primary: lime slab; on hover it lifts onto a hard white offset shadow.
+    lime: 'bg-lime text-ink border border-lime hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_0_#fff] active:translate-x-0 active:translate-y-0 active:shadow-none',
+    white: 'bg-white text-ink border border-white hover:-translate-x-px hover:-translate-y-px hover:shadow-[3px_3px_0_0_var(--color-lime)]',
     ghost: 'border border-line-strong text-white hover:border-lime hover:text-lime',
     danger: 'border border-coral/50 text-coral hover:bg-coral hover:text-ink',
     quiet: 'text-mid hover:bg-ink-3 hover:text-white',
@@ -68,7 +95,7 @@ export function Button({ variant = 'lime', size = 'md', className = '', busy, ch
   const s = size === 'sm' ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${s} ${v} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-[color,background-color,border-color,transform,box-shadow] duration-100 disabled:cursor-not-allowed disabled:opacity-40 ${s} ${v} ${className}`}
       disabled={busy || props.disabled}
       aria-busy={busy || undefined}
       {...props}
@@ -90,8 +117,8 @@ export function Segmented({ value, onChange, options, label }) {
           role="tab"
           aria-selected={value === v}
           onClick={() => onChange(v)}
-          className={`rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
-            value === v ? 'bg-ink-3 text-lime shadow-[inset_0_-1px_0_var(--color-lime)]' : 'text-mid hover:text-white'
+          className={`rounded-[2px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
+            value === v ? 'bg-lime text-ink' : 'text-mid hover:text-white'
           }`}
         >
           {text}
@@ -119,7 +146,7 @@ export function Empty({ icon: Icon, title, children }) {
   return (
     <div className="flex flex-col items-start rounded-panel border border-dashed border-line-strong px-6 py-10">
       {Icon && <Icon className="mb-4 h-6 w-6 text-mid" aria-hidden />}
-      <div className="text-base font-semibold lowercase">{title}</div>
+      <div className="t-section">{title}</div>
       {children && <div className="mt-1.5 max-w-lg text-sm text-mid">{children}</div>}
     </div>
   );
@@ -184,7 +211,7 @@ export function Stat({ label, value, sub, tone = 'default', className = '' }) {
   return (
     <Card tone={tone} className={`flex flex-col justify-between ${className}`}>
       <div className={`label ${dark ? '!text-ink/60' : ''}`}>{label}</div>
-      <div className="mt-6 text-5xl font-semibold md:text-6xl">
+      <div className="mt-6 text-[40px] md:text-[48px]">
         <Numeral value={value} />
       </div>
       {sub && <div className={`mt-3 text-xs ${dark ? 'text-ink/70' : 'text-mid'}`}>{sub}</div>}
@@ -210,7 +237,7 @@ export function Modal({ open, onClose, title, children }) {
         aria-label={typeof title === 'string' ? title : undefined}
       >
         <div className="mb-5 flex items-center justify-between border-b border-line pb-4">
-          <h2 className="text-xl font-semibold lowercase">{title}</h2>
+          <h2 className="t-section">{title}</h2>
           <button onClick={onClose} className="rounded-control p-1.5 text-mid hover:bg-ink-3 hover:text-white" aria-label="Close">
             <X className="h-5 w-5" />
           </button>

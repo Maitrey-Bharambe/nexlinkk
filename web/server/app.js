@@ -20,6 +20,7 @@ const { auditRouter } = require('./modules/audit/audit.routes');
 const { topologyRouter } = require('./modules/topology/topology.routes');
 const { onboardingRouter } = require('./modules/onboarding/onboarding.routes');
 const { insightsRouter } = require('./modules/insights/insights.routes');
+const { deviceCodesRouter } = require('./modules/enrollment/deviceCodes.routes');
 
 function createApp({ config, logger }) {
   const app = express();
@@ -82,6 +83,7 @@ function createApp({ config, logger }) {
   api.use(topologyRouter(deps));
   api.use(onboardingRouter(deps));
   api.use(insightsRouter(deps));
+  api.use(deviceCodesRouter(deps));
   app.use('/api/v1', api);
 
   app.use(notFoundHandler);

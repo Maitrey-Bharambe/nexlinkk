@@ -13,7 +13,7 @@ One container (`Dockerfile`) and one MongoDB.
 | Console, REST API, Socket.IO, agent relay | one Node process, port 3000 (`web/server.js`) |
 | Agent downloads (Windows, Linux x64/ARM64, macOS Intel/Apple silicon) | built into the image, served at `/downloads/*` |
 | Data | MongoDB — Atlas free tier, a managed instance, or the compose service |
-| AI diagnostics (optional) | `diagnostic-service`, reached via `DIAGNOSTIC_SERVICE_URL` |
+| AI (optional) | built in — set `GROQ_API_KEY`; no second service. (`DIAGNOSTIC_SERVICE_URL` can point at the Python service instead.) |
 
 The host must keep the process running and allow WebSockets: agents keep one relay socket open, and the
 incident detector runs in the background. Render, Railway, Fly.io, a VPS, or Kubernetes all work.
@@ -28,6 +28,7 @@ Serverless function platforms do not.
 | `TRUST_PROXY` | `true` behind a load balancer / reverse proxy you control (all PaaS hosts) |
 | `COOKIE_SECURE` | `true` (default in production) — HTTPS only |
 | `ALLOW_SIGNUP` | `false` once your accounts exist, if the portal is public |
+| `GROQ_API_KEY` | enables AI briefings and "ask ai" (built in) |
 | `RELAY_ENABLED` / `RELAY_MAX_BYTES_PER_SECOND` | relay on/off and the per-device bandwidth cap |
 
 Everything else has safe defaults (see `web/.env.example`).
@@ -62,10 +63,12 @@ point it at `http://localhost:3000`, set `PUBLIC_URL` to the tunnel's https addr
 
 ## Then
 
-1. **Devices → add a device**, name it, pick its network → copy the **invite link** and send it.
-2. The invited person opens the link, optionally allows remote desktop, pastes the line. Their computer
-   appears in **devices** as soon as it enrolls, and in **topology** with a *direct* or *relay* link.
-3. Remote session from your own enrolled PC: the device page shows the command
+1. On the computer to add, run the one line from **add a device** — it is the same for every computer:
+   `irm 'https://<your address>/join.ps1' | iex` (Windows) or `curl -fsSL 'https://<your address>/join.sh' | sh`.
+2. It shows a short code like `KXRT-4P2M`. Enter it on **add a device** (or open the link it prints),
+   check the computer name and key fingerprint, choose the network, approve. It is enrolled at once.
+3. Prefer to send something? **Invite links** still work and fall back to a code if they expire.
+4. Remote session from your own enrolled PC: the device page shows the command
    (`nexlink-agent session <device> rdp`).
 
 ## Security notes for a public portal

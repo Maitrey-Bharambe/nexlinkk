@@ -35,7 +35,7 @@ function Tooltip({ x, y, width, children }) {
  * Line (average) with a translucent band (p95) of the same hue: one measure and
  * its spread, not two series. Hours without samples break the line.
  */
-export function LineBandChart({ series, lineKey, bandKey, unit, height = 180, label }) {
+export function LineBandChart({ series, lineKey, bandKey, unit, height = 180, label, xLabel, tipLabel, events }) {
   const ref = useRef(null);
   const [hover, setHover] = useState(null);
   const W = 640;
@@ -94,13 +94,13 @@ export function LineBandChart({ series, lineKey, bandKey, unit, height = 180, la
           <g key={f}>
             <line x1={pad.l} x2={W - pad.r} y1={y(max * f)} y2={y(max * f)} stroke="rgba(255,255,255,0.07)" />
             <text x={pad.l - 6} y={y(max * f) + 3} textAnchor="end" fontSize="10" fill="#808080" fontFamily="var(--font-mono)">
-              {Math.round(max * f)}
+              {max < 4 ? +(max * f).toFixed(1) : Math.round(max * f)}
             </text>
           </g>
         ))}
         {[0, Math.floor((series.length - 1) / 2), series.length - 1].map((i) => (
           <text key={i} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : i === series.length - 1 ? 'end' : 'middle'} fontSize="10" fill="#808080" fontFamily="var(--font-mono)">
-            {i === series.length - 1 ? 'now' : `${series.length - 1 - i}h ago`}
+            {xLabel ? xLabel(i) : i === series.length - 1 ? 'now' : `${series.length - 1 - i}h ago`}
           </text>
         ))}
         {band && <path d={band} fill="#C7FF2E" opacity="0.14" />}
@@ -110,6 +110,26 @@ export function LineBandChart({ series, lineKey, bandKey, unit, height = 180, la
             <circle key={i} cx={x(i)} cy={y(p[lineKey])} r="4" fill="#C7FF2E" stroke="#161616" strokeWidth="2" />
           ) : null,
         )}
+        {/* Events on the same time axis: one tick per event, coloured by kind. */}
+        {events?.length > 0 &&
+          series.length > 1 &&
+          (() => {
+            const t0 = new Date(series[0].t).getTime();
+            const t1 = new Date(series[series.length - 1].t).getTime();
+            return events.map((e, k) => {
+              const f = (new Date(e.at).getTime() - t0) / Math.max(1, t1 - t0);
+              if (f < 0 || f > 1.02) return null;
+              const ex = pad.l + Math.min(1, f) * (W - pad.l - pad.r);
+              const c = { bad: '#FF5A36', warn: '#F2B94B', good: '#C7FF2E' }[e.severity] || 'rgba(255,255,255,0.45)';
+              return (
+                <g key={k}>
+                  <title>{e.label}</title>
+                  <line x1={ex} x2={ex} y1={pad.t} y2={H - pad.b} stroke={c} strokeOpacity="0.22" strokeDasharray="2 3" />
+                  <rect x={ex - 2} y={H - pad.b - 5} width="4" height="5" fill={c} />
+                </g>
+              );
+            });
+          })()}
         {hp && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={H - pad.b} stroke="rgba(255,255,255,0.25)" />
@@ -119,7 +139,7 @@ export function LineBandChart({ series, lineKey, bandKey, unit, height = 180, la
       </svg>
       {hp && ref.current && (
         <Tooltip x={(x(hover) / W) * ref.current.getBoundingClientRect().width} y={((hp[lineKey] != null ? y(hp[lineKey]) : pad.t) / H) * ref.current.getBoundingClientRect().height} width={ref.current.getBoundingClientRect().width}>
-          <div className="text-mid">{fmtHour(hp.t)}</div>
+          <div className="text-mid">{tipLabel ? tipLabel(hp) : fmtHour(hp.t)}</div>
           {hp[lineKey] == null ? (
             <div className="text-white/70">not measured</div>
           ) : (

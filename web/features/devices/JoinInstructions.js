@@ -65,7 +65,7 @@ export default function JoinInstructions({ token, deviceId, deviceName, expiresA
               role="tab"
               aria-selected={os === k}
               onClick={() => setOs(k)}
-              className={`rounded-[6px] px-3 py-1.5 text-xs font-semibold transition-colors ${os === k ? 'bg-ink-3 text-lime shadow-[inset_0_-1px_0_var(--color-lime)]' : 'text-mid hover:text-white'}`}
+              className={`rounded-[2px] px-3 py-1.5 text-xs font-semibold transition-colors ${os === k ? 'bg-lime text-ink' : 'text-mid hover:text-white'}`}
             >
               {label}
             </button>

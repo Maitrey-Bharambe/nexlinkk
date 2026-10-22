@@ -17,7 +17,8 @@ const DEFAULT_URL = 'http://127.0.0.1:8090';
  * May fill in config.DIAGNOSTIC_SERVICE_URL (dev only) when it was unset.
  */
 async function ensureDiagnosticService(config, logger) {
-  if (config.isProduction || !config.AI_AUTOSTART) return () => {};
+  // The built-in provider (GROQ_API_KEY) needs no second process.
+  if (config.isProduction || !config.AI_AUTOSTART || config.GROQ_API_KEY) return () => {};
   const python = path.join(SERVICE_DIR, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   if (!fs.existsSync(python)) return () => {};
 

@@ -21,6 +21,7 @@ const { loadNetworkState, serializeDevice } = require('../telemetry/state.servic
 const { bumpConfigVersion } = require('../networks/networks.service');
 const { createEnrollmentRequest, enrollmentStatus } = require('../enrollment/enrollment.service');
 const audit = require('../audit/audit.service');
+const { deviceMetrics, WINDOWS } = require('./metrics.service');
 
 const deviceParams = z.object({ deviceId: objectId }).strict();
 const listQuery = z
@@ -227,6 +228,18 @@ function devicesRouter({ config, limits }) {
           output: c.result?.output || null,
         })),
       });
+    }),
+  );
+
+  // Observatory: measurements over time, events on the same axis, and the
+  // per-peer connection inspector. Read-only, from stored records.
+  r.get(
+    '/devices/:deviceId/metrics',
+    requirePermission('telemetry:read'),
+    validate({ params: deviceParams, query: z.object({ window: z.enum(Object.keys(WINDOWS)).default('24h') }).strict() }),
+    ah(async (req, res) => {
+      const { device } = await loadDeviceInScope(req.user, req.valid.params.deviceId);
+      send(res, await deviceMetrics(device, req.valid.query.window, config));
     }),
   );
 

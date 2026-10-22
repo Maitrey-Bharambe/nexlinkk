@@ -27,6 +27,7 @@ Everything is served by one process on one origin; there is no separate control-
 | GET/POST `/users` | `users:manage` (admin) | create operator/viewer/admin |
 | GET `/overview` | `networks:read` | counts computed from records |
 | GET `/networks` | `networks:read` | scoped; includes observed summary |
+| GET `/networks/suggest-cidr` | `networks:create` | a free private /24 (advisory; create re-validates) |
 | POST `/networks` | `networks:create` | `{name, cidr}`; 400 `CIDR_*`, 409 `CIDR_OVERLAP` |
 | GET `/networks/:id` | `networks:read` | devices with health, peer links |
 | DELETE `/networks/:id` | `networks:delete` | 409 `NETWORK_NOT_EMPTY` while devices active/pending |
@@ -39,6 +40,10 @@ Everything is served by one process on one origin; there is no separate control-
 | GET `/devices/:id/measurements?type=&limit=` | `telemetry:read` | |
 | POST `/devices/:id/revoke` | `devices:revoke` | `{reason}` |
 | DELETE `/devices/:id/membership` | `devices:membership` | releases the address |
+| GET `/devices/:id/metrics?window=1h\|6h\|24h\|7d` | `telemetry:read` | bucketed RTT/loss/jitter/throughput (null when unmeasured), events on the same axis, per-peer connection inspector |
+| GET `/device-codes/:code` | `devices:enroll` | the computer behind a code: hostname, platform, key fingerprint, source IP |
+| POST `/device-codes/:code/approve` | `devices:enroll` | `{deviceName, networkId?}` — enrolls the device with the keys it proved; no networkId = caller's first network |
+| POST `/device-codes/:code/deny` | `devices:enroll` | |
 | GET `/devices/:id/activity?limit=` | `devices:read` | agent console: streamed agent log lines + recent commands |
 | GET `/devices/:id/actions` | `actions:read` | recent actions for this device |
 | POST `/devices/:id/actions` | `actions:request` | `{actionType, params}` from the device page — policy-checked, needs approval |
@@ -63,6 +68,8 @@ Roles: **admin** = all; **operator** = networks/devices/enroll/revoke/diagnose/a
 | Method & path | Auth | Body |
 |---|---|---|
 | POST `/enroll` | token + proof signature | `{enrollmentToken, identityPublicKey, wireguardPublicKey, agentVersion, platform, timestamp, signature}` |
+| POST `/device-code` | proof signature | `{identityPublicKey, wireguardPublicKey, hostname, agentVersion, platform, timestamp, signature}` → `{userCode, deviceCode, verificationUrl, expiresAt}` |
+| POST `/device-code/poll` | device-code secret | `{deviceCode}` → `pending` \| `denied` \| `expired` \| `approved` + enrollment |
 | POST `/heartbeat` | signed | heartbeat schema v1; optional `services: [{name: rdp\|ssh\|vnc\|http\|https\|tcp, port}]` (≤8); capabilities may include `relay`, `remote_session` |
 | POST `/telemetry` | signed | telemetry schema v1 |
 | GET `/config` | signed | — ; each peer has `endpointCandidates` (`host_reported`, `reflexive_guess`, `relay`) and `services` |

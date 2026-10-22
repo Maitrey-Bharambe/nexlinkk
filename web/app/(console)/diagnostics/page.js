@@ -94,7 +94,7 @@ export default function DiagnosticsPage() {
       {registry && (
         <div className="mb-6 grid gap-4 md:grid-cols-3">
           <Card tone="lime" label="diagnostic engine">
-            <div className="text-2xl font-bold">deterministic rules v1</div>
+            <div className="t-data text-lg text-white">deterministic_rules_v1</div>
             <p className="mt-2 text-sm text-ink/70">
               {registry.llmProviderConfigured
                 ? 'ai diagnostics available via the diagnostic service ("ask ai" on an incident). its output is schema-checked, must cite real evidence, and every action still needs policy + human approval.'
@@ -103,7 +103,7 @@ export default function DiagnosticsPage() {
           </Card>
           <Card label={`read-only tools · ${registry.tools.length}`}>
             <div className="flex flex-wrap gap-1.5">
-              {registry.tools.map((t) => <span key={t.name} title={t.description} className="rounded-[6px] border border-line bg-ink-3 px-2 py-1 font-mono text-[11px]">{t.name}</span>)}
+              {registry.tools.map((t) => <span key={t.name} title={t.description} className="rounded-[2px] border border-line bg-ink-3 px-2 py-1 font-mono text-[11px]">{t.name}</span>)}
             </div>
           </Card>
           <Card label="action allowlist">

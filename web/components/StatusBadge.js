@@ -53,7 +53,7 @@ export default function StatusBadge({ state, label, size = 'sm' }) {
   const tone = toneOf(state);
   const pad = size === 'lg' ? 'h-8 px-3 text-xs' : 'h-6 px-2 text-[10.5px]';
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-[6px] border font-mono uppercase tracking-wider whitespace-nowrap ${pad} ${TONES[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-[2px] border font-mono uppercase tracking-wider whitespace-nowrap ${pad} ${TONES[tone]}`}>
       <span aria-hidden className={`inline-block ${MARKERS[tone]}`} />
       {label || humanize(state)}
     </span>

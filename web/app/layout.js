@@ -1,9 +1,12 @@
-import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import { Space_Grotesk, JetBrains_Mono, Press_Start_2P } from 'next/font/google';
 import './globals.css';
 
-// Headings: Space Grotesk (geometric). Body: Inter (readable). Telemetry: JetBrains Mono.
+// Three faces, three jobs (see the type tokens in globals.css):
+//   display   Press Start 2P — page titles, section titles, big numerals, identifiers
+//   interface Space Grotesk  — everything people read: body, nav, buttons, forms, tables
+//   mono      JetBrains Mono — technical values: IPs, ids, timestamps, measurements
+const pixel = Press_Start_2P({ subsets: ['latin'], variable: '--font-pixel-face', weight: '400', display: 'swap' });
 const grotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-grotesk', weight: ['400', '500', '600', '700'] });
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains', weight: ['400', '500'] });
 
 export const metadata = {
@@ -13,7 +16,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${grotesk.variable} ${inter.variable} ${jetbrains.variable}`}>
+    <html lang="en" className={`${pixel.variable} ${grotesk.variable} ${jetbrains.variable}`}>
       <body className="min-h-screen">{children}</body>
     </html>
   );

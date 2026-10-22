@@ -36,6 +36,8 @@ const schema = z.object({
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).default(15),
 
   ENROLLMENT_TOKEN_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(15),
+  // "Join with a code": how long a code shown by an agent can be approved.
+  DEVICE_CODE_TTL_MINUTES: z.coerce.number().int().min(2).max(60).default(15),
   HEARTBEAT_INTERVAL_SECONDS: z.coerce.number().int().min(5).max(600).default(30),
   AGENT_CLOCK_SKEW_SECONDS: z.coerce.number().int().min(5).max(600).default(120),
   HANDSHAKE_FRESH_SECONDS: z.coerce.number().int().min(30).default(180),
@@ -46,6 +48,11 @@ const schema = z.object({
   INCIDENT_DETECTOR_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(30),
   DIAGNOSTIC_SERVICE_URL: z.string().url().optional(),
   DIAGNOSTIC_SERVICE_TIMEOUT_MS: z.coerce.number().int().min(500).max(60000).default(15000),
+  // Built-in AI (no second service to deploy): set GROQ_API_KEY and the app
+  // calls Groq itself. DIAGNOSTIC_SERVICE_URL, if set, takes precedence.
+  GROQ_API_KEY: optional(z.string().min(10)),
+  GROQ_MODEL: z.string().default('openai/gpt-oss-120b'),
+  GROQ_BASE_URL: z.string().url().default('https://api.groq.com/openai/v1'),
   // Development: start diagnostic-service/.venv automatically when it is not running.
   AI_AUTOSTART: bool.default('true'),
   // AI network briefings: re-evaluated on this interval, regenerated only when

@@ -9,34 +9,44 @@ const { proposeActions } = require('../approvals/actions.service');
 const { describeActions } = require('../policies/actionRegistry');
 const { conflict } = require('../../utils/errors');
 const audit = require('../audit/audit.service');
+const { planWithGroq } = require('./providers/groq');
+
+/** True when an AI planner is available: built-in (GROQ_API_KEY) or the HTTP service. */
+const aiConfigured = (config) => Boolean(config.DIAGNOSTIC_SERVICE_URL || config.GROQ_API_KEY);
 
 /**
- * Calls the external diagnostic service (Python). Its output is untrusted:
- * it is validated against the same schema and grounding rules, and its
- * proposed actions still go through the policy engine.
+ * Asks the AI planner: the built-in Groq provider, or the external diagnostic
+ * service when DIAGNOSTIC_SERVICE_URL is set. Either way the output is
+ * untrusted: it is validated against the same schema and grounding rules,
+ * and its proposed actions still go through the policy engine.
  */
 async function callDiagnosticService({ config, incident, device, evidence, allowedActions }) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), config.DIAGNOSTIC_SERVICE_TIMEOUT_MS);
+  const request = {
+    incident: {
+      id: String(incident._id),
+      category: incident.category,
+      severity: incident.severity,
+      title: incident.title,
+      detected_at: incident.detectedAt,
+      device: { id: String(device._id), name: device.name },
+    },
+    evidence: evidence.map((x) => ({ ref: x.ref, kind: x.kind, summary: x.summary, observed_at: x.observedAt, data: x.data })),
+    tools: describeTools(),
+    allowed_actions:
+      allowedActions ?? describeActions().filter((a) => a.available).map((a) => ({ id: a.id, description: a.description, risk: a.risk })),
+  };
   try {
+    if (!config.DIAGNOSTIC_SERVICE_URL) {
+      if (!config.GROQ_API_KEY) throw new Error('no AI provider configured');
+      return await planWithGroq({ config, request, signal: ctrl.signal });
+    }
     const res = await fetch(new URL('/v1/diagnose', config.DIAGNOSTIC_SERVICE_URL), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       signal: ctrl.signal,
-      body: JSON.stringify({
-        incident: {
-          id: String(incident._id),
-          category: incident.category,
-          severity: incident.severity,
-          title: incident.title,
-          detected_at: incident.detectedAt,
-          device: { id: String(device._id), name: device.name },
-        },
-        evidence: evidence.map((x) => ({ ref: x.ref, kind: x.kind, summary: x.summary, observed_at: x.observedAt, data: x.data })),
-        tools: describeTools(),
-        allowed_actions:
-          allowedActions ?? describeActions().filter((a) => a.available).map((a) => ({ id: a.id, description: a.description, risk: a.risk })),
-      }),
+      body: JSON.stringify(request),
     });
     if (!res.ok) {
       let detail = '';
@@ -56,8 +66,8 @@ async function callDiagnosticService({ config, incident, device, evidence, allow
 }
 
 async function runDiagnostics({ incident, user, mode, config, req }) {
-  if (mode === 'diagnostic_service' && !config.DIAGNOSTIC_SERVICE_URL) {
-    throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'DIAGNOSTIC_SERVICE_URL is not configured; use deterministic mode');
+  if (mode === 'diagnostic_service' && !aiConfigured(config)) {
+    throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'No AI provider configured (set GROQ_API_KEY); use deterministic mode');
   }
   const device = await Device.findById(incident.deviceId);
   const run = await DiagnosticRun.create({
@@ -70,6 +80,7 @@ async function runDiagnostics({ incident, user, mode, config, req }) {
 
   const { evidence, toolsRun, state } = await collectEvidence({ device, incident, config });
   run.evidence = evidence.map(({ ref, kind, summary, observedAt, data }) => ({ ref, kind, summary, observedAt, data }));
+  run.toolsRun = toolsRun;
 
   let raw;
   let proposedByType = 'deterministic_rules';
@@ -149,8 +160,8 @@ async function runDiagnostics({ incident, user, mode, config, req }) {
  * stored except an audit record; the result is returned to the caller.
  */
 async function analyzeDevice({ device, config, req }) {
-  if (!config.DIAGNOSTIC_SERVICE_URL) {
-    throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'DIAGNOSTIC_SERVICE_URL is not configured — start the diagnostic service');
+  if (!aiConfigured(config)) {
+    throw conflict('DIAGNOSTIC_SERVICE_DISABLED', 'No AI provider configured — set GROQ_API_KEY');
   }
   const now = new Date();
   const analysisId = `analysis-${device._id}-${now.getTime()}`;
@@ -193,4 +204,4 @@ async function analyzeDevice({ device, config, req }) {
   return finish('completed', { provider: out.provider, result: validated.value });
 }
 
-module.exports = { runDiagnostics, callDiagnosticService, analyzeDevice };
+module.exports = { runDiagnostics, callDiagnosticService, analyzeDevice, aiConfigured };

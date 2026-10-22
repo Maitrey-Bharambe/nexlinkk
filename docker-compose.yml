@@ -25,6 +25,8 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-true}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # AI is built in: a Groq key is all it needs.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       DIAGNOSTIC_SERVICE_URL: ${DIAGNOSTIC_SERVICE_URL:-}
     ports:
       - "3000:3000"
@@ -32,7 +34,8 @@ services:
       mongo:
         condition: service_healthy
 
-  # Optional "ask ai" diagnostics (mock provider unless GROQ_API_KEY is set).
+  # Optional, not needed: the separate Python AI service. NexLink has the same
+  # provider built in (GROQ_API_KEY above); use this only to run AI elsewhere.
   diagnostic-service:
     image: python:3.12-slim
     working_dir: /app

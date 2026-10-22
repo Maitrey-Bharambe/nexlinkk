@@ -6,6 +6,10 @@ const { Membership } = require('../../database/models/network');
 const { authenticateAgent } = require('../../middleware/agentAuth');
 
 const RELAY_PATH = '/api/v1/agent/relay';
+
+// The running relay, for read-only diagnostics (one per process).
+let current = null;
+const currentRelay = () => current;
 const ID_BYTES = 12; // a MongoDB ObjectId, raw
 const MAX_PACKET = 2048; // one WireGuard message (MTU 1420 + headers)
 const RECHECK_MS = 15_000;
@@ -131,7 +135,7 @@ function createRelay({ config, logger }) {
   }, RECHECK_MS);
   timer.unref();
 
-  return {
+  const api = {
     handleUpgrade,
     /** Relay state of one device, for the console. */
     status(deviceId) {
@@ -147,6 +151,8 @@ function createRelay({ config, logger }) {
       wss.close();
     },
   };
+  current = api;
+  return api;
 }
 
-module.exports = { createRelay, RELAY_PATH, ID_BYTES };
+module.exports = { createRelay, currentRelay, RELAY_PATH, ID_BYTES };

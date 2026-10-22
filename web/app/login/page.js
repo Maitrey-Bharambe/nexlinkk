@@ -35,7 +35,10 @@ export default function LoginPage() {
         : await post('/auth/login', { email: form.email, password: form.password });
       setCsrfToken(d.csrfToken);
       // New accounts go straight to registering the PC they are on.
-      router.replace(signup ? '/setup' : '/');
+      // Return to the page that sent us here; same-origin paths only (no open redirect).
+      const next = new URLSearchParams(window.location.search).get('next') || '';
+      const safeNext = /^\/(?!\/)[\w\-/?=&%.]*$/.test(next) ? next : null;
+      router.replace(safeNext || (signup ? '/setup' : '/'));
     } catch (err) {
       setError(err);
       setBusy(false);
@@ -85,7 +88,7 @@ export default function LoginPage() {
                 </button>
               ))}
             </div>
-            <h1 className="text-4xl font-bold lowercase">
+            <h1 className="t-title">
               {signup ? 'create account' : 'sign in'}
               <span className="text-lime">.</span>
             </h1>

@@ -22,8 +22,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Groq](https://img.shields.io/badge/Groq_LLM-F55036?style=for-the-badge&logoColor=white)
 
-![tests](https://img.shields.io/badge/tests-120_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
-![web](https://img.shields.io/badge/web_%2B_control_plane-77%2F77-C7FF2E?style=flat-square&labelColor=2E2E2E)
+![tests](https://img.shields.io/badge/tests-128_passing-C7FF2E?style=flat-square&labelColor=0F0F0F)
+![web](https://img.shields.io/badge/web_%2B_control_plane-85%2F85-C7FF2E?style=flat-square&labelColor=2E2E2E)
 ![agent](https://img.shields.io/badge/go--agent-28%2F28_%2B_integration-C7FF2E?style=flat-square&labelColor=2E2E2E)
 ![diagnostics](https://img.shields.io/badge/diagnostic--service-15%2F15-C7FF2E?style=flat-square&labelColor=2E2E2E)
 
@@ -55,6 +55,9 @@ open **remote sessions** through encrypted tunnels, diagnose failures, and run *
 | | Feature | What it gives you |
 |:---:|---|---|
 | 🙋 | **Sign up & register this PC** | Create an account, get your own private network and register the computer you're on in about a minute. |
+| 🔢 | **Join with a code** | One line, identical for every computer and containing no secret. The computer creates its keys and shows a short code like `KXRT-4P2M`; you approve it in the console after checking the computer's name and key fingerprint. No tokens to copy, nothing to expire in a chat. |
+| 🧭 | **Guided setup** | Three steps — create a network (free private range picked for you, CIDR optional), add devices, verify connectivity — with each check (agent, interface, peers, handshake, tested reachability) shown separately. |
+| 🔭 | **Network observatory** | Per device: RTT, loss and throughput over 1 h–7 d with incidents, path changes and agent silences on the same time axis, plus a connection inspector for every peer pair — configured vs observed, direct vs relay, what each side reported. |
 | 💌 | **Invite links** | Add a device and send the link. The invited person sees the right one-liner for Windows, macOS or Linux — no account, no admin rights, no WireGuard app. The token rides in the URL `#fragment`, which never reaches a server. |
 | 🌐 | **Private networks** | Pick an IPv4 range; NexLink validates it, prevents overlaps and hands every device a unique virtual address. |
 | 🪪 | **Cryptographic device identity** | Each PC generates its own Ed25519 identity. One-time enrollment tokens, signed requests, instant revocation. |
@@ -354,22 +357,18 @@ The device page shows the exact command, whether the link is **direct** or **rel
 </details>
 
 <details>
-<summary>🤖 Enable "ask ai" with Groq</summary>
+<summary>🤖 Enable AI (Groq)</summary>
 
-```powershell
-cd diagnostic-service
-python -m venv .venv; .venv\Scripts\pip install -r requirements.txt
-$env:NEXLINK_DIAG_PROVIDER="groq"; $env:GROQ_API_KEY="<your key>"
-.venv\Scripts\python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8090
-```
-Set `DIAGNOSTIC_SERVICE_URL=http://127.0.0.1:8090` in `web/.env`. Only evidence summaries are sent to Groq.
+Add `GROQ_API_KEY=<your key>` to `web/.env` and restart — the AI provider is built into the app, so there is
+nothing else to run or deploy. Only evidence summaries are sent to Groq, never keys, tokens or raw payloads.
+The separate Python `diagnostic-service` remains available via `DIAGNOSTIC_SERVICE_URL` if you prefer it.
 </details>
 
 ## 🧪 Testing
 
 | Suite | Command | Result | Category |
 |---|---|:---:|---|
-| 🧭 Web app + control plane | `cd web && npm test` | ✅ 77 / 77 | integration vs ephemeral MongoDB + simulated agents with real keys; relay over real WebSockets |
+| 🧭 Web app + control plane | `cd web && npm test` | ✅ 85 / 85 | integration vs ephemeral MongoDB + simulated agents with real keys; relay over real WebSockets |
 | 🐹 Go agent | `cd networking-agent && go test ./...` | ✅ 28 / 28 | unit + real wireguard-go tunnels on loopback, incl. one whose **only** path is the relay; session gateway end to end |
 | 🐹 Agent ↔ control plane | `go test -tags integration ./tests/` | ✅ passed | real agent vs running control plane |
 | 🤖 Diagnostic service | `cd diagnostic-service && python -m pytest -q` | ✅ 15 / 15 | contract tests, Groq mocked |

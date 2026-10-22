@@ -20,12 +20,16 @@ export function portalOrigin(request) {
   return `${proto === 'https' ? 'https' : 'http'}://${host}`;
 }
 
+/**
+ * `device` is '' when absent (the generic "join with a code" script), the id
+ * when valid, and null when present but malformed (rejected). Same for share.
+ */
 export function joinParams(request) {
   const url = new URL(request.url);
   const device = url.searchParams.get('device') || '';
   const share = (url.searchParams.get('share') || '').toLowerCase();
   return {
-    device: DEVICE_RE.test(device) ? device : null,
+    device: device === '' || DEVICE_RE.test(device) ? device : null,
     share: share === '' || SHARE_RE.test(share) ? share : null,
   };
 }

@@ -6,7 +6,7 @@ const { Measurement } = require('../../database/models/telemetry');
 const { Incident } = require('../../database/models/incidents');
 const { AiBriefing } = require('../../database/models/insights');
 const { loadNetworkState } = require('../telemetry/state.service');
-const { callDiagnosticService } = require('../diagnostics/diagnostics.service');
+const { callDiagnosticService, aiConfigured } = require('../diagnostics/diagnostics.service');
 const { validateDiagnosticResult } = require('../diagnostics/diagnostic.schema');
 const audit = require('../audit/audit.service');
 
@@ -305,7 +305,7 @@ async function latestBriefings(networkIds) {
  * briefing when its state fingerprint changed (or the last one is > 6 h old).
  */
 function startBriefings({ config, logger, realtime }) {
-  if (!config.BRIEFING_INTERVAL_MINUTES || !config.DIAGNOSTIC_SERVICE_URL) return () => {};
+  if (!config.BRIEFING_INTERVAL_MINUTES || !aiConfigured(config)) return () => {};
   let running = false;
   const tick = async () => {
     if (running) return;

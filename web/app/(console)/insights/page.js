@@ -18,9 +18,9 @@ function Kpi({ label, value, unit, sub, tone }) {
   return (
     <div className="bg-ink-2 p-5">
       <div className="label">{label}</div>
-      <div className={`mt-4 text-4xl font-semibold ${tone || ''}`}>
+      <div className={`mt-4 text-[26px] md:text-[30px] ${tone || ''}`}>
         {value == null ? <span className="numeral text-white/30">—</span> : <Numeral value={value} />}
-        {value != null && unit && <span className="numeral ml-1 text-lg text-white/40">{unit}</span>}
+        {value != null && unit && <span className="t-data ml-1.5 text-sm text-white/60">{unit}</span>}
       </div>
       {sub && <div className="mt-2 text-xs text-mid">{sub}</div>}
     </div>
@@ -50,7 +50,7 @@ function Insights() {
     <div>
       <PageHeader
         kicker={`analytics from agent records · ai explains, never acts · refreshed ${timeAgo(fetchedAt, now) || '—'}`}
-        title="ai insights"
+        title={'ai\ninsights'}
         description="the AI reads the same evidence shown below and writes a briefing per network. every finding cites a recorded fact; anything it cites that does not exist is rejected before it reaches this page."
       >
         {data.networks.length > 1 && (
@@ -74,7 +74,7 @@ function Insights() {
       ) : (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
           {/* AI briefings */}
-          <section className="ticks rounded-panel border border-line bg-ink-2 p-5 md:p-6">
+          <section className="frame-double border border-line-strong bg-ink-2 p-5 md:p-6">
             {shown.length === 0 ? (
               <AiStatusNote ai={data.ai} entry={null} />
             ) : (
@@ -94,7 +94,7 @@ function Insights() {
           </section>
 
           {/* KPIs */}
-          <section className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:grid-cols-4">
+          <section className="grid grid-cols-2 gap-px overflow-hidden border border-line-strong bg-line lg:grid-cols-4" aria-label="Key figures">
             <Kpi label="health score" value={a.devices.healthScore} unit="%" sub={`${a.devices.byStatus.healthy || 0} of ${a.devices.enrolled} enrolled pass every check`} tone={a.devices.healthScore === 100 ? 'text-lime' : ''} />
             <Kpi label="verified tunnels" value={a.tunnels.connected} unit={`/ ${a.tunnels.total}`} sub={`${a.tunnels.direct} direct · ${a.tunnels.relay} via relay`} />
             <Kpi label="tunnel rtt p95 · 24h" value={a.latency.rttP95} unit="ms" sub={a.latency.samples ? `${a.latency.samples} samples · median ${a.latency.rttP50} ms` : 'no tunnel probes recorded'} />
@@ -107,15 +107,15 @@ function Insights() {
           </section>
 
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <Card label="tunnel latency · last 24 h">
+            <Card label="last 24 h" title="tunnel latency">
               <LineBandChart series={a.latency.series} lineKey="rttAvg" bandKey="rttP95" unit="ms" label="Tunnel round-trip time per hour" />
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10.5px] uppercase tracking-wider text-mid">
                 <span className="flex items-center gap-2"><span className="h-0.5 w-5 rounded bg-lime" aria-hidden /> hourly average</span>
-                <span className="flex items-center gap-2"><span className="h-2.5 w-5 rounded-sm bg-lime/15" aria-hidden /> up to p95</span>
+                <span className="flex items-center gap-2"><span className="h-2.5 w-5 rounded-[1px] bg-lime/15" aria-hidden /> up to p95</span>
                 <span>gaps = hours without measurements</span>
               </div>
             </Card>
-            <Card label="packet loss · last 24 h">
+            <Card label="last 24 h" title="packet loss">
               <LineBandChart series={a.latency.series} lineKey="lossAvg" unit="%" height={180} label="Tunnel packet loss per hour" />
               <p className="mt-3 text-xs text-mid">
                 average {a.latency.lossAvg == null ? 'not measured' : `${a.latency.lossAvg}%`} across tunnel probes.
@@ -124,17 +124,17 @@ function Insights() {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <Card label="incidents opened · last 7 days">
+            <Card label="last 7 days" title="incidents opened">
               <BarChart items={a.incidents.perDay} valueKey="opened" unit="opened" labelOf={(d, long) => (long ? new Date(d.day).toLocaleDateString() : fmtDay(d.day))} label="Incidents opened per day" />
               <p className="mt-3 text-xs text-mid">test events are excluded. {a.incidents.perDay.reduce((n, d) => n + d.resolved, 0)} verified resolutions in the same window.</p>
             </Card>
-            <Card label="incidents by category · 7 days">
+            <Card label="last 7 days" title="by category">
               <ShareBars entries={Object.entries(a.incidents.byCategory)} unit="incidents" />
             </Card>
           </div>
 
-          <section className="overflow-hidden rounded-panel border border-line">
-            <div className="border-b border-line bg-ink-2 px-5 py-4"><div className="label">per-device tunnel quality · 24 h</div></div>
+          <section className="overflow-hidden border border-line">
+            <div className="border-b border-line bg-ink-2 px-5 py-4"><div className="label">last 24 h</div><h2 className="t-section mt-1.5">per-device tunnel quality</h2></div>
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>

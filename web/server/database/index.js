@@ -10,6 +10,7 @@ const models = {
   ...require('./models/incidents'),
   ...require('./models/audit'),
   ...require('./models/insights'),
+  ...require('./models/deviceCode'),
 };
 
 // Unknown filter keys are rejected instead of silently matching everything.

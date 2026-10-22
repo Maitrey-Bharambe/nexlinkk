@@ -1,7 +1,9 @@
 @import 'tailwindcss';
 
 /*
- * NexLink design tokens — "precision with character".
+ * NexLink design tokens — neo-brutalist, pixel-inspired, technical.
+ * Square geometry, visible grid, crisp borders, lime used as a surface or a
+ * signal (never as glow), a pixel display face for short headings only.
  *
  * Palette (functional, not decorative):
  *   ink      #0F0F0F  background
@@ -23,17 +25,26 @@
   --color-mid: #808080;
   --color-amber: #f2b94b;
   --color-coral: #ff5a36;
-  --color-line: rgb(255 255 255 / 0.09);
-  --color-line-strong: rgb(255 255 255 / 0.16);
+  --color-line: rgb(255 255 255 / 0.13);
+  --color-line-strong: rgb(255 255 255 / 0.24);
+  --color-grid: rgb(255 255 255 / 0.05);
 
-  --font-display: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /*
+   * Type: three faces, three jobs.
+   *   display    pixel — page/section titles, big numerals, short identifiers. Never paragraphs.
+   *   interface  sans  — everything people read: body, nav, buttons, forms, tables, dialogs.
+   *   mono       mono  — technical values: IPs, ids, timestamps, measurements, status labels.
+   */
+  --font-display: var(--font-pixel-face), var(--font-jetbrains), monospace;
+  --font-interface: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-interface);
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-pixel: var(--font-display);
 
-  /* Modest, consistent geometry. `blob` is kept as the panel radius name. */
-  --radius-blob: 12px;
-  --radius-panel: 12px;
-  --radius-control: 8px;
+  /* Square, near-square geometry. `blob` is kept as the panel radius name. */
+  --radius-blob: 2px;
+  --radius-panel: 2px;
+  --radius-control: 2px;
 
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
@@ -47,7 +58,16 @@
   --surface-elevated: var(--color-ink-3);
   --surface-muted: var(--color-charcoal);
   --text-muted: var(--color-mid);
-  --border: var(--color-line);
+  --border: rgb(255 255 255 / 0.18);
+  --grid-line: rgb(255 255 255 / 0.07);
+  --surface-raised: var(--color-ink-3);
+  /* Interaction + status tokens. Status colours mean state, never decoration. */
+  --nav-active: var(--color-lime);
+  --hover: rgb(255 255 255 / 0.04);
+  --focus: var(--color-lime);
+  --success: var(--color-lime);
+  --warning: var(--color-amber);
+  --error: var(--color-coral);
 }
 
 html {
@@ -59,16 +79,88 @@ body {
 }
 
 body {
-  font-family: var(--font-sans);
-  font-feature-settings: 'cv11', 'ss01';
+  font-family: var(--font-interface);
   -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2,
-h3,
-.font-display {
+/* Element defaults live in the base layer so Tailwind utilities (text-ink,
+   text-sm, font-mono…) on the same element always win. */
+@layer base {
+  /* Headings default to the interface face; the pixel face is opt-in via the
+     text styles below, so a stray <h2> never turns into pixel paragraph text. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-interface);
+  }
+
+  /* Form controls inherit the system instead of the browser's defaults. */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+  select {
+    background-color: var(--color-ink);
+    border-radius: var(--radius-control);
+  }
+  option,
+  optgroup {
+    background-color: var(--color-ink);
+    color: #fff;
+  }
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--color-lime);
+  }
+  ::placeholder {
+    color: rgb(128 128 128 / 0.8);
+  }
+}
+
+/* ── Text styles ─────────────────────────────────────────────────────────
+ * Use these instead of picking a font per component.
+ *   .t-title    page title (pixel, 20→36px)
+ *   .t-section  major section title (pixel, 12→16px)
+ *   .t-ident    small identifier / step number (pixel, 9px)
+ *   .label      eyebrow / field label (mono, 11px, uppercase)
+ *   .t-data     technical value (mono, tabular)
+ *   .numeral    big number (pixel, tabular)
+ */
+.t-title {
   font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: clamp(19px, 1.2vw + 14px, 34px);
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+.t-section {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+}
+@media (min-width: 768px) {
+  .t-section {
+    font-size: 14px;
+  }
+}
+.t-ident {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 9px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.t-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /*
@@ -82,17 +174,70 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Two-level technical grid: 24px minor, 120px major. Static, cheap to paint. */
   background:
-    radial-gradient(900px 520px at 0% 0%, rgb(199 255 46 / 0.045), transparent 70%),
-    linear-gradient(rgb(255 255 255 / 0.022) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, rgb(255 255 255 / 0.022) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 120px 120px,
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 120px 120px,
+    linear-gradient(var(--color-grid) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px) 0 0 / 24px 24px,
+    /* scrim keeps text contrast over the bright parts of the map */
+    linear-gradient(180deg, rgb(15 15 15 / 0.72) 0%, rgb(15 15 15 / 0.6) 50%, rgb(15 15 15 / 0.78) 100%),
+    image-set(url('/bg-main.webp') type('image/webp'), url('/bg-png.png') type('image/png')) center / cover no-repeat,
     var(--background);
 }
 body:has(.backdrop-photo)::before {
   background:
     linear-gradient(100deg, rgb(15 15 15 / 0.86) 0%, rgb(15 15 15 / 0.6) 45%, rgb(15 15 15 / 0.35) 100%),
-    image-set(url('/bg.webp') type('image/webp'), url('/bg.png') type('image/png')) center / cover no-repeat,
+    image-set(url('/bg-main.webp') type('image/webp'), url('/bg-png.png') type('image/png')) center / cover no-repeat,
     var(--background);
+}
+
+/* Pixel display text: crisp, never synthesized bold, generous leading. */
+.font-pixel {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.35;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* Hard offset shadows (neo-brutalist). Opt-in, for a few emphasised elements. */
+.brut {
+  box-shadow: 4px 4px 0 0 var(--color-lime);
+}
+.brut-ink {
+  box-shadow: 4px 4px 0 0 #000;
+}
+.brut-white {
+  box-shadow: 3px 3px 0 0 #fff;
+}
+/* Double outline: a second frame offset from the first. */
+.frame-double {
+  outline: 1px solid var(--color-line-strong);
+  outline-offset: 3px;
+}
+
+/* Pixel corner marks for focal panels (square, not rounded). */
+.pixel-corners {
+  position: relative;
+}
+.pixel-corners::before,
+.pixel-corners::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--color-lime);
+  pointer-events: none;
+}
+.pixel-corners::before {
+  top: -3px;
+  left: -3px;
+}
+.pixel-corners::after {
+  bottom: -3px;
+  right: -3px;
 }
 
 ::selection {
@@ -117,9 +262,10 @@ body:has(.backdrop-photo)::before {
 /* Big numerals: tabular so changing values do not jitter. */
 .numeral {
   font-family: var(--font-display);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.04em;
-  line-height: 0.9;
+  letter-spacing: 0;
+  line-height: 1;
 }
 
 .tabular {
@@ -166,14 +312,12 @@ body:has(.backdrop-photo)::before {
   left: -1px;
   border-top: 1px solid;
   border-left: 1px solid;
-  border-top-left-radius: var(--radius-panel);
 }
 .ticks::after {
   bottom: -1px;
   right: -1px;
   border-bottom: 1px solid;
   border-right: 1px solid;
-  border-bottom-right-radius: var(--radius-panel);
 }
 
 /* ── Motion: short, state-driven, all disabled under reduced motion ─────── */
@@ -234,10 +378,30 @@ body:has(.backdrop-photo)::before {
   animation: progress 1.2s ease-in-out infinite;
 }
 
+/* Square packets travelling along a verified wire (HTML path views). */
+@keyframes packet-run {
+  from { left: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  to { left: calc(100% - 8px); opacity: 0; }
+}
+.packet-css {
+  animation: packet-run 1.8s linear infinite;
+}
+@keyframes packet-fall {
+  from { top: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  to { top: calc(100% - 8px); opacity: 0; }
+}
+.packet-fall {
+  animation: packet-fall 1.4s linear infinite;
+}
+
 /* React Flow dark skin */
 .react-flow {
   --xy-background-color: transparent;
-  --xy-node-border-radius: 8px;
+  --xy-node-border-radius: 0px;
   --xy-controls-button-background-color: #202020;
   --xy-controls-button-background-color-hover: #2e2e2e;
   --xy-controls-button-color: #fff;
@@ -251,19 +415,14 @@ body:has(.backdrop-photo)::before {
   color: #808080 !important;
 }
 .react-flow__controls {
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow: none !important;
   border: 1px solid rgb(255 255 255 / 0.09);
 }
 /* Verified tunnels: a short pulse travels along the path (direction of the handshake report). */
-.react-flow__edge.edge-verified .react-flow__edge-path {
-  stroke-dasharray: 2 14;
-  animation: sim-dash 1.6s linear infinite;
-}
-.react-flow__edge.edge-verified.edge-relay .react-flow__edge-path {
-  stroke-dasharray: 10 6;
-  animation-duration: 2.6s;
+.react-flow__edge-path {
+  stroke-linecap: square;
 }
 
 /* /simulation: traffic flowing along the tunnel and control links. */
@@ -285,7 +444,9 @@ body:has(.backdrop-photo)::before {
   .status-flash,
   .pulse-lime,
   .progress-run::after,
-  .react-flow__edge.edge-verified .react-flow__edge-path {
+  .packet,
+  .packet-css,
+  .packet-fall {
     animation: none !important;
   }
   * {

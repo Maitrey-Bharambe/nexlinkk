@@ -176,7 +176,7 @@ function RealisticLaptop({ id, node, status }) {
       <circle cx={-76} cy={-59} r={2.5} fill="#FF5A36" opacity={0.8} />
       <circle cx={-68} cy={-59} r={2.5} fill="#E3B341" opacity={0.8} />
       <circle cx={-60} cy={-59} r={2.5} fill="#C7FF2E" opacity={0.8} />
-      <text x={-50} y={-56} className="font-mono" fontSize={8} fill="#7A8699" letterSpacing="0.5">
+      <text x={-50} y={-56} className="font-mono" fontSize={8} fill="#808080" letterSpacing="0.5">
         {node.name} :: nexlink-agent
       </text>
 
@@ -187,7 +187,7 @@ function RealisticLaptop({ id, node, status }) {
           <text y={-30} textAnchor="middle" className="font-mono" fontSize={11} fontWeight={700} fill="#FF5A36">
             [ACCESS REVOKED]
           </text>
-          <text y={-14} textAnchor="middle" className="font-mono" fontSize={8} fill="#FF8A70">
+          <text y={-14} textAnchor="middle" className="font-mono" fontSize={8} fill="#FF5A36">
             403 DEVICE_REVOKED
           </text>
           <text y={0} textAnchor="middle" className="font-mono" fontSize={8} fill="#808080">
@@ -199,13 +199,13 @@ function RealisticLaptop({ id, node, status }) {
           <text y={-24} textAnchor="middle" className="font-mono" fontSize={10} fill="#808080">
             AGENT OFFLINE
           </text>
-          <text y={-8} textAnchor="middle" className="font-mono" fontSize={8} fill="#555555">
+          <text y={-8} textAnchor="middle" className="font-mono" fontSize={8} fill="#4D4D4D">
             DAEMON PROCESS STOPPED
           </text>
         </g>
       ) : (
         <g>
-          <text x={-78} y={-44} className="font-mono" fontSize={8.5} fill="#7A8699">
+          <text x={-78} y={-44} className="font-mono" fontSize={8.5} fill="#808080">
             &gt; nexlink-agent run --userspace
           </text>
           <text x={-78} y={-32} className="font-mono" fontSize={9} fontWeight={600} fill="#C7FF2E">
@@ -749,7 +749,7 @@ export default function SimulationCanvas({ a, b, st, inflight }) {
           <path
             d={ctl(n)}
             fill="none"
-            stroke={st.cp === 'down' ? '#FF5A36' : '#555555'}
+            stroke={st.cp === 'down' ? '#FF5A36' : '#4D4D4D'}
             strokeWidth={1.8}
             strokeDasharray="6 7"
             opacity={st.cp === 'down' ? 0.35 : 0.65}

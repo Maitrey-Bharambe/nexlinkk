@@ -74,20 +74,32 @@ export default function NetworksPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {data?.map((n, idx) => (
-            <Link key={n.id} href={`/networks/${n.id}`}>
-              <Card tone={idx === 0 ? 'white' : 'default'} className="group h-full transition-transform hover:-translate-y-1">
-                <div className="flex items-start justify-between">
-                  <div className={`label ${idx === 0 ? '!text-ink/60' : ''}`}>{n.myRole}</div>
-                  <StatusBadge state={n.summary.observedStatus} />
-                </div>
-                <div className="mt-10 text-3xl font-bold lowercase tracking-tight">{n.name}</div>
-                <div className={`mt-1 font-mono text-sm ${idx === 0 ? 'text-ink/70' : 'text-lime'}`}>{n.cidr}</div>
-                <div className={`mt-6 flex gap-4 font-mono text-xs ${idx === 0 ? 'text-ink/60' : 'text-mid'}`}>
-                  <span>{n.summary.devices.total} devices</span>
-                  <span>{n.summary.links.total} peer pairs</span>
-                  <span>{n.usableHosts} hosts</span>
-                </div>
-              </Card>
+            <Link
+              key={n.id}
+              href={`/networks/${n.id}`}
+              className="group block border border-line bg-ink-2 transition-[transform,box-shadow,border-color] duration-100 hover:-translate-x-px hover:-translate-y-px hover:border-lime hover:shadow-[4px_4px_0_0_var(--color-lime)]"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2">
+                <span className="t-ident text-lime">net-{String(idx + 1).padStart(2, '0')}</span>
+                <StatusBadge state={n.summary.observedStatus} />
+              </div>
+              <div className="px-4 pb-4 pt-5">
+                <div className="truncate text-xl font-semibold">{n.name}</div>
+                <div className="t-data mt-1 text-sm text-lime">{n.cidr}</div>
+                <dl className="mt-5 grid grid-cols-3 divide-x divide-line border-t border-line pt-3">
+                  {[
+                    ['devices', n.summary.devices.total],
+                    ['peer pairs', n.summary.links.total],
+                    ['hosts', n.usableHosts],
+                  ].map(([k, v]) => (
+                    <div key={k} className="px-2 first:pl-0">
+                      <dt className="label !text-[10px]">{k}</dt>
+                      <dd className="t-data mt-1 text-base text-white">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="label mt-3 !text-[10px]">your role · {n.myRole}</div>
+              </div>
             </Link>
           ))}
         </div>

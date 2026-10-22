@@ -19,7 +19,9 @@ export function AuthProvider({ children }) {
       })
       .catch(() => {
         setState({ user: null, loading: false });
-        router.replace('/login');
+        // Come back here after signing in (e.g. the agent's /activate?code= link).
+        const here = window.location.pathname + window.location.search;
+        router.replace(here && here !== '/' ? `/login?next=${encodeURIComponent(here)}` : '/login');
       });
   }, [router]);
 

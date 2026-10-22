@@ -11,7 +11,7 @@ const { send, ah, objectId } = require('../../utils/http');
 const { notFound, conflict, forbidden } = require('../../utils/errors');
 const { visibleNetworkIds, loadDeviceInScope, roleOnNetwork } = require('../networks/scope');
 const { Network } = require('../../database/models/network');
-const { runDiagnostics } = require('../diagnostics/diagnostics.service');
+const { runDiagnostics, aiConfigured } = require('../diagnostics/diagnostics.service');
 const { describeTools } = require('../diagnostics/tools');
 const { describeActions } = require('../policies/actionRegistry');
 const audit = require('../audit/audit.service');
@@ -105,7 +105,7 @@ function incidentsRouter({ config, limits }) {
   const r = express.Router();
 
   r.get('/diagnostics/registry', requirePermission('incidents:read'), (_req, res) =>
-    send(res, { tools: describeTools(), actions: describeActions(), llmProviderConfigured: Boolean(config.DIAGNOSTIC_SERVICE_URL) }),
+    send(res, { tools: describeTools(), actions: describeActions(), llmProviderConfigured: aiConfigured(config) }),
   );
 
   r.get(
@@ -194,6 +194,7 @@ function incidentsRouter({ config, limits }) {
           startedAt: x.startedAt,
           completedAt: x.completedAt,
           evidence: x.evidence,
+          toolsRun: x.toolsRun || [],
           result: x.result,
           validationErrors: x.validationErrors,
         })),

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { use, useState } from 'react';
-import { Bot, Eye, Play, Sparkles, XCircle } from 'lucide-react';
+import { Bot, Eye, Play, Route, Sparkles, XCircle } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
 import { useAuth } from '@/components/AuthProvider';
 import { Button, Card, ErrorState, Field, KV, Loading, Modal, PageHeader, Running, inputCls } from '@/components/ui';
 import StatusBadge, { StatusMarker } from '@/components/StatusBadge';
 import ActionCard from '@/features/incidents/ActionCard';
+import PathView from '@/features/incidents/PathView';
 import { post } from '@/lib/api';
 import { fmtTime, humanize, timeAgo } from '@/lib/format';
 
@@ -101,11 +102,80 @@ function Timeline({ inc, now }) {
   );
 }
 
+/** The read-only checks that produced the evidence for the latest diagnosis. */
+function DiagnosticChecks({ run, registry, cited }) {
+  const desc = new Map((registry?.tools || []).map((t) => [t.name, t.description]));
+  if (!run?.toolsRun?.length) return null;
+  return (
+    <Card label={`diagnostic checks · ${run.toolsRun.filter((t) => t.ok).length}/${run.toolsRun.length} ran · read-only`}>
+      <ul className="divide-y divide-line">
+        {run.toolsRun.map((t) => {
+          const used = (t.refs || []).filter((r) => cited.has(r)).length;
+          return (
+            <li key={t.tool} className="grid grid-cols-[12px_minmax(0,1fr)_auto] items-baseline gap-x-3 py-2.5">
+              <StatusMarker state={t.ok ? 'completed' : 'failed'} />
+              <div className="min-w-0">
+                <div className="font-mono text-[12px] text-white">{t.tool}</div>
+                <div className="text-xs text-mid">{t.ok ? desc.get(t.tool) || '' : `failed: ${t.error}`}</div>
+              </div>
+              <div className="text-right font-mono text-[10.5px] text-mid">
+                {t.items} item{t.items === 1 ? '' : 's'}
+                {used > 0 && <span className="text-lime"> · {used} cited</span>}
+                {t.ms != null && <div>{t.ms} ms</div>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+/**
+ * The investigation as a sequence of states — only those the backend
+ * actually reached, each derived from a recorded fact.
+ */
+function InvestigationStates({ inc }) {
+  const runs = inc.diagnosticRuns || [];
+  const acts = inc.actions || [];
+  const reached = [
+    ['detected', Boolean(inc.detectedAt)],
+    ['investigating', runs.length > 0 || inc.state === 'investigating'],
+    ['evidence collected', runs.some((r) => (r.evidence || []).length > 0)],
+    ['action proposed', acts.length > 0],
+    ['awaiting approval', acts.some((a) => a.status === 'awaiting_approval' || a.approval)],
+    ['executing', acts.some((a) => ['queued', 'executing'].includes(a.status) || a.approval?.decision === 'approved')],
+    ['verifying', acts.some((a) => a.verification?.checkedAt)],
+    ['resolved', inc.state === 'resolved'],
+    ['failed', runs.some((r) => ['failed', 'rejected'].includes(r.status)) || acts.some((a) => ['failed', 'timed_out'].includes(a.verification?.outcome))],
+  ].filter(([, ok]) => ok);
+  return (
+    <ol aria-label="Investigation progress" className="mb-6 flex flex-wrap items-stretch gap-px border border-line bg-line">
+      {reached.map(([label], i) => {
+        const last = i === reached.length - 1;
+        const failed = label === 'failed';
+        return (
+          <li
+            key={label}
+            aria-current={last ? 'step' : undefined}
+            className={`flex items-center gap-2 px-3 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] ${
+              failed ? 'bg-coral text-ink' : last ? 'bg-lime text-ink' : 'bg-ink-2 text-white/70'
+            }`}
+          >
+            <span className="font-pixel text-[8px]">{String(i + 1).padStart(2, '0')}</span>
+            {label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function ColumnHead({ icon: Icon, title, note, tone = 'text-lime' }) {
   return (
     <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <Icon className={`h-4 w-4 shrink-0 translate-y-0.5 ${tone}`} strokeWidth={1.75} aria-hidden />
-      <h2 className="text-lg font-semibold lowercase tracking-tight">{title}</h2>
+      <h2 className="t-section">{title}</h2>
       <span className="font-mono text-[10.5px] uppercase tracking-wider text-mid">{note}</span>
     </div>
   );
@@ -143,13 +213,13 @@ export default function IncidentDetail({ params }) {
 
   return (
     <div>
-      <PageHeader kicker={`incident · ${humanize(inc.category)}${inc.isTest ? ' · test event' : ''}`} title={inc.title.replace(/^\[TEST\] /, '')}>
+      <PageHeader kicker={`network autopsy · ${humanize(inc.category)}${inc.isTest ? ' · test event' : ''}`} plain title={inc.title.replace(/^\[TEST\] /, '')}>
         <StatusBadge state={inc.state} size="lg" />
         {inc.active && can('incidents:diagnose') && (
           <Button busy={busy === 'deterministic'} disabled={Boolean(busy)} onClick={() => diagnose('deterministic')}><Play className="h-4 w-4" aria-hidden /> run diagnostics</Button>
         )}
         {inc.active && can('incidents:diagnose') && registry?.llmProviderConfigured && (
-          <Button variant="white" busy={busy === 'diagnostic_service'} disabled={Boolean(busy)} onClick={() => diagnose('diagnostic_service')} title="LLM analysis via the diagnostic service; output is schema-checked, grounded and policy-gated">
+          <Button variant="white" busy={busy === 'diagnostic_service'} disabled={Boolean(busy)} onClick={() => diagnose('diagnostic_service')} aria-label="ask ai" title="AI analysis: output is schema-checked, must cite collected evidence, and any action is policy-gated">
             <Sparkles className="h-4 w-4" aria-hidden /> ask ai
           </Button>
         )}
@@ -165,10 +235,12 @@ export default function IncidentDetail({ params }) {
         </div>
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-        {/* ── left: what was measured ── */}
+      <InvestigationStates inc={inc} />
+
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] 2xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.15fr)]">
+        {/* ── left: the incident and its timeline ── */}
         <div className="space-y-4">
-          <ColumnHead icon={Eye} title="observed" note="measured · recorded by agents and tools" />
+          <ColumnHead icon={Eye} title="incident" note="what was detected, and when" />
           <Card>
             <KV k="device"><Link className="underline decoration-white/30 underline-offset-4 hover:text-lime" href={`/devices/${inc.deviceId}`}>{inc.deviceName || inc.deviceId}</Link></KV>
             <KV k="severity"><StatusBadge state={inc.severity} /></KV>
@@ -185,7 +257,16 @@ export default function IncidentDetail({ params }) {
           <Card label="timeline">
             <Timeline inc={inc} now={now} />
           </Card>
-          <Card label="detection evidence">
+        </div>
+
+        {/* ── center: the affected connection, and the checks that measured it ── */}
+        <div className="space-y-4">
+          <ColumnHead icon={Route} title="path" note="the connection this incident is about" />
+          <section className="pixel-corners border border-line-strong bg-ink-2 p-5">
+            <PathView deviceId={inc.deviceId} peerDeviceId={inc.peerDeviceId} />
+          </section>
+          <DiagnosticChecks run={run} registry={registry} cited={cited} />
+          <Card label="detection evidence · observed">
             <EvidenceList items={inc.evidence} now={now} />
           </Card>
           {run && (
@@ -195,8 +276,8 @@ export default function IncidentDetail({ params }) {
           )}
         </div>
 
-        {/* ── right: what the planner concludes ── */}
-        <div className="space-y-4">
+        {/* ── right: hypotheses and recovery ── */}
+        <div className="space-y-4 lg:col-span-2 2xl:col-span-1">
           <ColumnHead
             icon={isAi ? Sparkles : Bot}
             title="analysis"
@@ -214,10 +295,10 @@ export default function IncidentDetail({ params }) {
               <ErrorState error={{ code: `RUN_${run.status.toUpperCase()}`, message: run.status === 'failed' ? 'The planner could not be reached or returned an error' : 'Planner output failed validation and was discarded', details: run.validationErrors.map((m) => ({ message: m })) }} />
             </Card>
           ) : (
-            <section className="rounded-panel border border-line bg-ink-2">
+            <section className={`border bg-ink-2 ${isAi ? 'border-dashed border-white/40' : 'border-line'}`}>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
                 <span className="font-mono text-[11px] uppercase tracking-wider text-mid">{run.provider} · {timeAgo(run.completedAt, now)}</span>
-                {isAi && <span className="rounded-[6px] border border-line-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/70">ai output · not a measurement</span>}
+                {isAi && <span className="rounded-[2px] border border-line-strong px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/70">ai output · not a measurement</span>}
               </div>
               <div className="px-5 py-5">
                 <p className="text-[17px] font-medium leading-snug">{run.result.summary}</p>
@@ -228,7 +309,7 @@ export default function IncidentDetail({ params }) {
                     <li key={i} className="border-l-2 border-lime/70 pl-3 text-sm">
                       {o.statement}
                       <div className="mt-1 flex min-w-0 flex-wrap gap-1">
-                        {[...new Set(o.evidence_refs)].map((r) => <span key={r} className="max-w-full break-all rounded-[4px] bg-ink-3 px-1.5 py-0.5 font-mono text-[10px] text-lime">{r}</span>)}
+                        {[...new Set(o.evidence_refs)].map((r) => <span key={r} className="max-w-full break-all rounded-[2px] bg-ink-3 px-1.5 py-0.5 font-mono text-[10px] text-lime">{r}</span>)}
                       </div>
                     </li>
                   ))}
@@ -237,7 +318,7 @@ export default function IncidentDetail({ params }) {
                 <div className="label mb-2 mt-7">hypotheses · not facts</div>
                 <ul className="space-y-2">
                   {run.result.hypotheses.map((h, i) => (
-                    <li key={i} className={`flex items-start justify-between gap-3 rounded-control border border-dashed border-line-strong px-3 py-2.5 text-sm ${h.status === 'ruled_out' ? 'text-white/45 line-through decoration-white/25' : ''}`}>
+                    <li key={i} className={`flex items-start justify-between gap-3 rounded-control border border-dashed border-line-strong px-3 py-2.5 text-sm ${h.status === 'ruled_out' ? 'text-white/55 line-through decoration-white/25' : ''}`}>
                       <span>{h.statement}</span>
                       <StatusBadge state={h.status === 'plausible' ? 'pending' : h.status === 'ruled_out' ? 'rejected' : 'unknown'} label={h.status.replace('_', ' ')} />
                     </li>
@@ -258,7 +339,7 @@ export default function IncidentDetail({ params }) {
 
           <div className="pt-2">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <h2 className="text-lg font-semibold lowercase tracking-tight">proposed actions</h2>
+              <h2 className="t-section">proposed recovery</h2>
               <span className="font-mono text-[10.5px] uppercase tracking-wider text-mid">policy-checked · human approval · verified after</span>
             </div>
             {inc.actions.length === 0 ? (
