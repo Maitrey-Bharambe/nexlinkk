@@ -180,15 +180,17 @@ body::before {
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 120px 120px,
     linear-gradient(var(--color-grid) 1px, transparent 1px) 0 0 / 24px 24px,
     linear-gradient(90deg, var(--color-grid) 1px, transparent 1px) 0 0 / 24px 24px,
-    /* scrim keeps text contrast over the bright parts of the map */
-    linear-gradient(180deg, rgb(15 15 15 / 0.72) 0%, rgb(15 15 15 / 0.6) 50%, rgb(15 15 15 / 0.78) 100%),
-    image-set(url('/bg-main.webp') type('image/webp'), url('/bg-png.png') type('image/png')) center / cover no-repeat,
+    /* scrim keeps text contrast over the lit server racks at the edges */
+    linear-gradient(180deg, rgb(15 15 15 / 0.66) 0%, rgb(15 15 15 / 0.52) 50%, rgb(15 15 15 / 0.74) 100%),
+    image-set(url('/bg-main.webp') type('image/webp'), url('/main-bg.png') type('image/png')) center / cover no-repeat,
     var(--background);
+  /* the scene is pixel art: keep its pixels square when scaled up */
+  image-rendering: pixelated;
 }
 body:has(.backdrop-photo)::before {
   background:
     linear-gradient(100deg, rgb(15 15 15 / 0.86) 0%, rgb(15 15 15 / 0.6) 45%, rgb(15 15 15 / 0.35) 100%),
-    image-set(url('/bg-main.webp') type('image/webp'), url('/bg-png.png') type('image/png')) center / cover no-repeat,
+    image-set(url('/bg-main.webp') type('image/webp'), url('/main-bg.png') type('image/png')) center / cover no-repeat,
     var(--background);
 }
 
