@@ -67,10 +67,11 @@ This is the live setup at https://nexlink-maitrey.azurewebsites.net.
 * **Build elsewhere, not on Azure.** A B1 machine fails `next build`, and Azure for Students
   subscriptions cannot use container registry builds (`TasksOperationsNotAllowed`). The app is built
   on GitHub's runners and deployed as a ready-to-run zip by `.github/workflows/deploy.yml`.
-* **Pipeline secret:** App Service → Overview → **Download publish profile**, paste the file's contents
-  into the GitHub repository secret `AZURE_WEBAPP_PUBLISH_PROFILE`. (Publish-profile deploys need
-  App Service → Configuration → *SCM Basic Auth Publishing Credentials* turned on.) Until the secret
-  exists, the workflow runs the tests and skips the deploy.
+* **No pipeline secret.** GitHub signs in to Azure with OpenID Connect. The managed identity
+  `nexlink-github-deploy` (resource group `nexlink-rg`) has a federated credential whose subject is
+  exactly `repo:Maitrey-Bharambe@193407401/nexlinkk@1422437295:environment:production` (GitHub's
+  ID-based format) and the role *Website Contributor* on the web app only. Password-based (basic auth)
+  deploy and FTP are switched off on the app.
 * **Cold start:** the first request after a restart takes up to ~30 s while Node loads from Azure's
   storage; afterwards pages answer in under a second.
 
