@@ -55,6 +55,25 @@ Caddy fetches the certificate itself and passes WebSocket upgrades through uncha
 3. Environment: `MONGODB_URI`, `PUBLIC_URL` (the service's https URL or your domain), `TRUST_PROXY=true`.
 4. Deploy, open the URL, **sign up** — the first account becomes admin.
 
+## Option B2 · Azure App Service (Node runtime, deployed by GitHub Actions)
+
+This is the live setup at https://nexlink-maitrey.azurewebsites.net.
+
+* **App Service:** Linux, runtime `NODE|22-lts`, plan **B1** or higher (Free has no Always On).
+  Startup command `npm start`; **Web sockets on, Always on on, HTTPS only on**; health check `/healthz`.
+  One instance — do not enable autoscale.
+* **App settings:** `MONGODB_URI`, `PUBLIC_URL=https://<app>.azurewebsites.net`, `TRUST_PROXY=true`,
+  `SCM_DO_BUILD_DURING_DEPLOYMENT=false`, optionally `GROQ_API_KEY`.
+* **Build elsewhere, not on Azure.** A B1 machine fails `next build`, and Azure for Students
+  subscriptions cannot use container registry builds (`TasksOperationsNotAllowed`). The app is built
+  on GitHub's runners and deployed as a ready-to-run zip by `.github/workflows/deploy.yml`.
+* **Pipeline secret:** App Service → Overview → **Download publish profile**, paste the file's contents
+  into the GitHub repository secret `AZURE_WEBAPP_PUBLISH_PROFILE`. (Publish-profile deploys need
+  App Service → Configuration → *SCM Basic Auth Publishing Credentials* turned on.) Until the secret
+  exists, the workflow runs the tests and skips the deploy.
+* **Cold start:** the first request after a restart takes up to ~30 s while Node loads from Azure's
+  storage; afterwards pages answer in under a second.
+
 ## Option C · try it from your laptop
 
 Any HTTPS tunnel that forwards WebSockets (Cloudflare Tunnel, ngrok, Tailscale Funnel) works for a demo:
