@@ -2,8 +2,10 @@
 # Azure App Service (nexlink-maitrey). The app is built here, not on Azure,
 # so the App Service setting SCM_DO_BUILD_DURING_DEPLOYMENT must be false.
 #
-# Needs one repository secret: AZURE_WEBAPP_PUBLISH_PROFILE
-# (App Service → Overview → Download publish profile → paste the file's contents).
+# No secrets: GitHub signs in to Azure with OpenID Connect. The managed identity
+# "nexlink-github-deploy" trusts only this repository's "production" environment
+# and may only deploy this one web app (Website Contributor on nexlink-maitrey).
+# The three IDs below identify it; they do not grant access on their own.
 
 name: CI/CD
 
@@ -16,6 +18,9 @@ on:
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   AZURE_WEBAPP_NAME: nexlink-maitrey
@@ -60,25 +65,18 @@ jobs:
     environment:
       name: production
       url: https://nexlink-maitrey.azurewebsites.net
-    env:
-      # Deploy steps run only once the publish-profile secret exists.
-      HAS_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
+    permissions:
+      contents: read
+      id-token: write # lets the job request the OIDC token Azure trusts
     steps:
-      - name: Check deploy secret
-        if: env.HAS_PROFILE != 'true'
-        run: echo "::notice::AZURE_WEBAPP_PUBLISH_PROFILE is not set - tests passed, deploy skipped."
-
       - uses: actions/checkout@v4
-        if: env.HAS_PROFILE == 'true'
 
       - uses: actions/setup-go@v5
-        if: env.HAS_PROFILE == 'true'
         with:
           go-version-file: networking-agent/go.mod
           cache-dependency-path: networking-agent/go.sum
 
       - name: Build agent downloads (Windows, Linux, macOS)
-        if: env.HAS_PROFILE == 'true'
         working-directory: networking-agent
         env:
           CGO_ENABLED: '0'
@@ -94,14 +92,12 @@ jobs:
           ls -la "$out"
 
       - uses: actions/setup-node@v4
-        if: env.HAS_PROFILE == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: web/package-lock.json
 
       - name: Build web app
-        if: env.HAS_PROFILE == 'true'
         working-directory: web
         run: |
           npm ci
@@ -109,20 +105,23 @@ jobs:
           npm prune --omit=dev
 
       - name: Package
-        if: env.HAS_PROFILE == 'true'
         working-directory: web
-        run: zip -qr ../app.zip . -x '.next/cache/*' 'tests/*' '.data/*' '.env' '.env.*'
+        run: zip -qry ../app.zip . -x '.next/cache/*' 'tests/*' '.data/*' '.env' '.env.*'
+
+      - name: Sign in to Azure (OpenID Connect, no secret)
+        uses: azure/login@v2
+        with:
+          client-id: f774a74b-4919-4084-a603-6b7cc5229b60
+          tenant-id: c7b00d7f-ad99-442a-b12f-c2c912044fdc
+          subscription-id: e6235afa-776e-4e90-ad59-f4045f773cde
 
       - name: Deploy to Azure App Service
-        if: env.HAS_PROFILE == 'true'
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: app.zip
 
       - name: Smoke test
-        if: env.HAS_PROFILE == 'true'
         run: |
           for i in $(seq 1 30); do
             if curl -fsS https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/healthz; then exit 0; fi
