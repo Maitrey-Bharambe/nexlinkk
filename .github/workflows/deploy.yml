@@ -1,0 +1,116 @@
+# CI/CD: test on every push and pull request; on main, build and deploy to
+# Azure App Service (nexlink-maitrey). The app is built here, not on Azure,
+# so the App Service setting SCM_DO_BUILD_DURING_DEPLOYMENT must be false.
+#
+# Needs one repository secret: AZURE_WEBAPP_PUBLISH_PROFILE
+# (App Service → Overview → Download publish profile → paste the file's contents).
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AZURE_WEBAPP_NAME: nexlink-maitrey
+  NODE_VERSION: '22'
+
+jobs:
+  test-web:
+    name: Web app tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  test-agent:
+    name: Agent tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: networking-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: networking-agent/go.mod
+          cache-dependency-path: networking-agent/go.sum
+      - run: go test ./...
+
+  deploy:
+    name: Build and deploy to Azure
+    needs: [test-web, test-agent]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://nexlink-maitrey.azurewebsites.net
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: networking-agent/go.mod
+          cache-dependency-path: networking-agent/go.sum
+
+      - name: Build agent downloads (Windows, Linux, macOS)
+        working-directory: networking-agent
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          set -e
+          out=../web/public/downloads
+          mkdir -p "$out"
+          for t in windows/amd64/nexlink-agent.exe linux/amd64/nexlink-agent-linux-amd64 linux/arm64/nexlink-agent-linux-arm64 \
+                   darwin/amd64/nexlink-agent-darwin-amd64 darwin/arm64/nexlink-agent-darwin-arm64; do
+            os=${t%%/*}; rest=${t#*/}; arch=${rest%%/*}; name=${rest#*/}
+            GOOS=$os GOARCH=$arch go build -trimpath -ldflags '-s -w' -o "$out/$name" ./cmd/nexlink-agent
+          done
+          ls -la "$out"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web app
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+          npm prune --omit=dev
+
+      - name: Package
+        working-directory: web
+        run: zip -qr ../app.zip . -x '.next/cache/*' 'tests/*' '.data/*' '.env' '.env.*'
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: app.zip
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/healthz; then exit 0; fi
+            sleep 10
+          done
+          echo "health check did not pass" && exit 1
