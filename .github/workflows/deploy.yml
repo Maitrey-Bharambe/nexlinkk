@@ -34,8 +34,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -50,8 +50,8 @@ jobs:
       run:
         working-directory: networking-agent
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: networking-agent/go.mod
           cache-dependency-path: networking-agent/go.sum
@@ -69,9 +69,9 @@ jobs:
       contents: read
       id-token: write # lets the job request the OIDC token Azure trusts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: networking-agent/go.mod
           cache-dependency-path: networking-agent/go.sum
@@ -91,7 +91,7 @@ jobs:
           done
           ls -la "$out"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -109,7 +109,7 @@ jobs:
         run: zip -qry ../app.zip . -x '.next/cache/*' 'tests/*' '.data/*' '.env' '.env.*'
 
       - name: Sign in to Azure (OpenID Connect, no secret)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: f774a74b-4919-4084-a603-6b7cc5229b60
           tenant-id: c7b00d7f-ad99-442a-b12f-c2c912044fdc
