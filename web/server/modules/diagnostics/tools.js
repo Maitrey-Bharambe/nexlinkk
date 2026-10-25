@@ -1,7 +1,8 @@
 'use strict';
 
 const { Heartbeat, Measurement, PeerObservation } = require('../../database/models/telemetry');
-const { Incident } = require('../../database/models/incidents');
+const { Incident, ProposedAction } = require('../../database/models/incidents');
+const { AgentCommand } = require('../../database/models/device');
 const { AuditEvent } = require('../../database/models/audit');
 const { loadNetworkState } = require('../telemetry/state.service');
 const { currentRelay } = require('../relay/relay');
@@ -14,6 +15,14 @@ const { currentRelay } = require('../relay/relay');
  */
 
 const e = (ref, kind, summary, observedAt, data) => ({ ref, kind, summary, observedAt: observedAt || null, data: data ?? null });
+
+// Where a measurement went — spelled out so tunnel and internet paths are never confused.
+const LABEL = {
+  peer: 'tunnel to peer (through WireGuard)',
+  control_plane: 'control plane over the internet (not the tunnel)',
+  relay: 'relay',
+  interface: 'local interface',
+};
 
 const TOOLS = {
   get_device_status: {
@@ -84,7 +93,7 @@ const TOOLS = {
         e(
           `measurement:${m._id}`,
           m.type,
-          m.valid ? `${m.type}=${m.value}${m.unit} → ${m.target.kind} via ${m.source}` : `${m.type} unavailable → ${m.target.kind}: ${m.error || 'no value'}`,
+          m.valid ? `${LABEL[m.target.kind] || m.target.kind}: ${m.type}=${m.value}${m.unit} (${m.source})` : `${LABEL[m.target.kind] || m.target.kind}: ${m.type} unavailable — ${m.error || 'no value'}`,
           m.measuredAt,
           { value: m.value, unit: m.unit, valid: m.valid, source: m.source, target: m.target.kind },
         ),
@@ -101,6 +110,31 @@ const TOOLS = {
           note: 'Routing-table collection from the agent is not implemented yet',
         }),
       ];
+    },
+  },
+  get_recent_transfer_tests: {
+    description: 'Data-transfer tests through the tunnel (last 24 h): size, duration, throughput, path, and whether the peer confirmed the checksum',
+    async run({ device, state }) {
+      const since = new Date(Date.now() - 86400_000);
+      const acts = await ProposedAction.find({ deviceId: device._id, actionType: 'run_transfer_test', createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(5).lean();
+      if (!acts.length) return [e(`device:${device._id}:transfers`, 'transfer_test', 'No transfer tests in the last 24 hours', null, { count: 0 })];
+      const cmds = new Map((await AgentCommand.find({ _id: { $in: acts.map((a) => a.commandId).filter(Boolean) } }).lean()).map((c) => [String(c._id), c]));
+      return acts.map((a) => {
+        const out = cmds.get(String(a.commandId))?.result?.output || {};
+        const link = state.links.find((l) => [l.source, l.target].includes(String(a.params?.peerDeviceId)) && [l.source, l.target].includes(String(device._id)));
+        const done = typeof out.bytesSent === 'number';
+        const summary = done
+          ? `Transfer test to peer: ${(out.bytesSent / 1048576).toFixed(1)} MB in ${(out.durationMs / 1000).toFixed(2)} s = ${Number(out.mbitPerSecond).toFixed(1)} Mbit/s through the tunnel; peer confirmed ${(out.bytesConfirmed / 1048576).toFixed(1)} MB, checksum ${out.integrityMatch ? 'matches' : 'MISMATCH'}; link path now ${link?.path || 'unknown'}`
+          : `Transfer test ${a.status}${a.verification?.outcome ? ` (${a.verification.outcome})` : ''}: ${(a.verification?.notes || []).join('; ') || 'no result'}`;
+        return e(`action:${a._id}`, 'transfer_test', summary, a.updatedAt || a.createdAt, {
+          megabytes: a.params?.megabytes ?? null,
+          mbitPerSecond: out.mbitPerSecond ?? null,
+          durationMs: out.durationMs ?? null,
+          integrityMatch: out.integrityMatch ?? null,
+          path: link?.path || null,
+          outcome: a.verification?.outcome || null,
+        });
+      });
     },
   },
   check_relay_health: {

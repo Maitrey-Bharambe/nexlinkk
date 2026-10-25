@@ -13,7 +13,7 @@ import (
 )
 
 // Version is the agent version reported to the control plane.
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 type Config struct {
 	ServerURL         string

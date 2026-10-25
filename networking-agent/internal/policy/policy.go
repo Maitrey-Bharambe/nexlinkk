@@ -21,6 +21,12 @@ type ConnectivityParams struct {
 	Count        int    `json:"count"`
 }
 
+// TransferParams: send a bounded amount of random data through the tunnel to a peer.
+type TransferParams struct {
+	PeerDeviceID string `json:"peerDeviceId"`
+	Megabytes    int    `json:"megabytes"`
+}
+
 type Spec struct {
 	Privileged bool
 	validate   func(json.RawMessage) (any, error)
@@ -51,6 +57,19 @@ var commands = map[string]Spec{
 		}
 		if p.Count < 1 || p.Count > 20 {
 			return nil, errors.New("count must be 1..20")
+		}
+		return p, nil
+	}},
+	"transfer_test": {validate: func(raw json.RawMessage) (any, error) {
+		var p TransferParams
+		if err := strictDecode(raw, &p); err != nil {
+			return nil, err
+		}
+		if !objectID.MatchString(p.PeerDeviceID) {
+			return nil, errors.New("peerDeviceId required")
+		}
+		if p.Megabytes < 1 || p.Megabytes > 32 {
+			return nil, errors.New("megabytes must be 1..32")
 		}
 		return p, nil
 	}},

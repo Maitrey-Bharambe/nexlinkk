@@ -45,6 +45,25 @@ async function verifyAction(action, command) {
       notes.push(`${valid.length}/${ms.length} measurements valid`);
       return result(valid.length === ms.length ? 'successful' : valid.length ? 'partially_successful' : 'failed');
     }
+    case 'run_transfer_test': {
+      const out = command.result?.output || {};
+      const ms = await Measurement.find({ commandId: command._id, type: 'throughput' }).lean();
+      for (const m of ms) {
+        evidence.push({ ref: `measurement:${m._id}`, kind: 'throughput', summary: m.valid ? `throughput=${Math.round(m.value)}bps through the tunnel` : `throughput unavailable: ${m.error || ''}`, observedAt: m.measuredAt });
+      }
+      const mb = (b) => (typeof b === 'number' ? `${(b / 1048576).toFixed(1)} MB` : '?');
+      if (typeof out.bytesSent !== 'number') {
+        notes.push('Agent returned no transfer result');
+        return result('failed');
+      }
+      notes.push(`${mb(out.bytesSent)} sent, ${mb(out.bytesConfirmed)} confirmed by the peer in ${((out.durationMs || 0) / 1000).toFixed(2)} s (${Number(out.mbitPerSecond || 0).toFixed(1)} Mbit/s)`);
+      if (!out.integrityMatch) {
+        notes.push('Peer checksum does not match what was sent — data was lost or altered');
+        return result('failed');
+      }
+      notes.push(`Integrity verified: SHA-256 ${String(out.sha256 || '').slice(0, 12)}… matches on both ends`);
+      return result(ms.some((m) => m.valid) ? 'successful' : 'partially_successful');
+    }
     case 'request_peer_status_report': {
       const d = await Device.findById(action.deviceId).lean();
       if (d?.lastTelemetryAt && d.lastTelemetryAt > command.createdAt) {

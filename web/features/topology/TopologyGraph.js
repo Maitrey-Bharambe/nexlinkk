@@ -61,10 +61,27 @@ function PeerEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
   const reduced = useReducedMotion();
   const [path, lx, ly] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 0, offset: GRID });
   const s = data.style;
+  const flow = data.flow; // a data-flow test on this link: 'transferring' | 'waiting'
+  const heavy = flow === 'transferring';
+  const relay = data.path === 'relay';
   return (
     <>
-      <BaseEdge id={id} path={path} style={{ stroke: s.stroke, strokeWidth: s.strokeWidth, strokeDasharray: s.dash, strokeOpacity: s.opacity ?? 1 }} />
-      {s.packets && !reduced &&
+      {data.selected && <path d={path} fill="none" stroke="#FFFFFF" strokeOpacity={0.18} strokeWidth={12} />}
+      <BaseEdge
+        id={id}
+        path={path}
+        interactionWidth={24}
+        style={{ stroke: s.stroke, strokeWidth: heavy ? 4 : s.strokeWidth, strokeDasharray: s.dash, strokeOpacity: s.opacity ?? 1, cursor: 'pointer' }}
+      />
+      {heavy && !reduced &&
+        // Real test traffic: a dense, fast stream of packets for as long as the transfer runs.
+        [0, 1, 2, 3, 4, 5, 6, 7].map((k) => (
+          <rect key={`f${k}`} width="7" height="7" x="-3.5" y="-3.5" fill={LIME} stroke="#0F0F0F" strokeWidth="1" shapeRendering="crispEdges" visibility="hidden">
+            <set attributeName="visibility" to="visible" begin={`${(k * (relay ? 1.6 : 0.8)) / 8}s`} />
+            <animateMotion dur={relay ? '1.6s' : '0.8s'} begin={`${(k * (relay ? 1.6 : 0.8)) / 8}s`} repeatCount="indefinite" path={path} />
+          </rect>
+        ))}
+      {!heavy && s.packets && !reduced &&
         [0, 1, 2].map((k) => (
           // Hidden until its staggered start, so it never sits at the origin.
           <rect key={k} className="packet" width="6" height="6" x="-3" y="-3" fill={LIME} stroke="#0F0F0F" strokeWidth="1" shapeRendering="crispEdges" visibility="hidden">
@@ -74,10 +91,12 @@ function PeerEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
         ))}
       <EdgeLabelRenderer>
         <div
-          className={`nodrag nopan pointer-events-none absolute border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.12em] ${TAG[s.tone]}`}
+          className={`nodrag nopan pointer-events-none absolute border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.12em] ${
+            flow ? 'border-white bg-white text-ink' : TAG[s.tone]
+          } ${data.selected && !flow ? 'outline outline-1 outline-offset-2 outline-white' : ''}`}
           style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)` }}
         >
-          {s.label}
+          {heavy ? `transferring${data.megabytes ? ` ${data.megabytes} MB` : ''} · ${data.path || ''}` : flow === 'waiting' ? 'test queued' : s.label}
         </div>
       </EdgeLabelRenderer>
     </>
@@ -208,7 +227,7 @@ function useChangedNodes(graph) {
   return changed;
 }
 
-export default function TopologyGraph({ graph, showControl, showMembership, selectedId, onSelect }) {
+export default function TopologyGraph({ graph, showControl, showMembership, selectedId, onSelect, selectedLinkId, onSelectLink, flow }) {
   const changed = useChangedNodes(graph);
   const { nodes, edges } = useMemo(() => {
     const pos = layout(graph);
@@ -235,7 +254,13 @@ export default function TopologyGraph({ graph, showControl, showMembership, sele
             sourceHandle: sameRow ? 'r' : 'b',
             targetHandle: sameRow ? 'l' : 't',
             type: 'peer',
-            data: { style: peerStyle(e), path: e.path },
+            data: {
+              style: peerStyle(e),
+              path: e.path,
+              selected: e.id === selectedLinkId,
+              flow: flow?.linkId === e.id ? flow.mode : null,
+              megabytes: flow?.linkId === e.id ? flow.megabytes : null,
+            },
           };
         }
         if (e.kind === 'control') {
@@ -254,7 +279,7 @@ export default function TopologyGraph({ graph, showControl, showMembership, sele
         return { id: e.id, source: e.target, target: e.source, sourceHandle: 'b', targetHandle: 't', type: 'step', style: { stroke: 'rgba(255,255,255,0.16)', strokeWidth: 1 } };
       });
     return { nodes, edges };
-  }, [graph, showControl, showMembership, changed, selectedId]);
+  }, [graph, showControl, showMembership, changed, selectedId, selectedLinkId, flow]);
 
   return (
     <ReactFlow
@@ -268,6 +293,7 @@ export default function TopologyGraph({ graph, showControl, showMembership, sele
       snapToGrid
       snapGrid={[GRID, GRID]}
       onNodeClick={(_, n) => n.type === 'device' && onSelect?.(n.id)}
+      onEdgeClick={(_, e) => e.type === 'peer' && onSelectLink?.(e.id)}
       proOptions={{ hideAttribution: false }}
       nodesConnectable={false}
       colorMode="dark"

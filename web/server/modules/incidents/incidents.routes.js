@@ -3,7 +3,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { Incident, DiagnosticRun, ProposedAction, Approval, INCIDENT_CATEGORIES, INCIDENT_STATES } = require('../../database/models/incidents');
-const { Device } = require('../../database/models/device');
+const { Device, AgentCommand } = require('../../database/models/device');
 const { User } = require('../../database/models/identity');
 const { validate } = require('../../middleware/validate');
 const { requirePermission, requireCsrf } = require('../../middleware/auth');
@@ -36,7 +36,27 @@ const testIncidentBody = z
   .strict();
 const closeBody = z.object({ note: z.string().trim().min(3).max(500) }).strict();
 
-function serializeAction(a, approval, approverName) {
+/** Numbers a transfer test produced, read from its command result (allowlisted fields only). */
+function transferResult(cmd) {
+  if (!cmd) return null;
+  const o = cmd.result?.output || {};
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  return {
+    commandStatus: cmd.status,
+    deliveredAt: cmd.deliveredAt || null,
+    completedAt: cmd.completedAt || null,
+    bytesSent: num(o.bytesSent),
+    bytesConfirmed: num(o.bytesConfirmed),
+    durationMs: num(o.durationMs),
+    mbitPerSecond: num(o.mbitPerSecond),
+    integrityMatch: typeof o.integrityMatch === 'boolean' ? o.integrityMatch : null,
+    sha256: typeof o.sha256 === 'string' ? o.sha256.slice(0, 64) : null,
+    peerSha256: typeof o.peerSha256 === 'string' ? o.peerSha256.slice(0, 64) : null,
+    error: cmd.result?.error || null,
+  };
+}
+
+function serializeAction(a, approval, approverName, cmd) {
   return {
     id: String(a._id),
     incidentId: a.incidentId ? String(a.incidentId) : null,
@@ -56,6 +76,7 @@ function serializeAction(a, approval, approverName) {
       : null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
+    ...(a.actionType === 'run_transfer_test' ? { transfer: transferResult(cmd) } : {}),
   };
 }
 
@@ -64,9 +85,11 @@ async function serializeActions(actions) {
   const users = await User.find({ _id: { $in: approvals.map((x) => x.approverId) } }).select('displayName').lean();
   const names = new Map(users.map((u) => [String(u._id), u.displayName]));
   const byAction = new Map(approvals.map((x) => [String(x.actionId), x]));
+  const cmdIds = actions.filter((a) => a.actionType === 'run_transfer_test' && a.commandId).map((a) => a.commandId);
+  const cmds = cmdIds.length ? new Map((await AgentCommand.find({ _id: { $in: cmdIds } }).lean()).map((c) => [String(c._id), c])) : new Map();
   return actions.map((a) => {
     const ap = byAction.get(String(a._id));
-    return serializeAction(a, ap, ap ? names.get(String(ap.approverId)) : null);
+    return serializeAction(a, ap, ap ? names.get(String(ap.approverId)) : null, cmds.get(String(a.commandId)));
   });
 }
 

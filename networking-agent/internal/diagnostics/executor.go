@@ -5,9 +5,11 @@ package diagnostics
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"strconv"
@@ -18,6 +20,7 @@ import (
 	"github.com/nexlink/networking-agent/internal/platform"
 	"github.com/nexlink/networking-agent/internal/policy"
 	"github.com/nexlink/networking-agent/internal/telemetry"
+	"github.com/nexlink/networking-agent/internal/transfer"
 	"github.com/nexlink/networking-agent/internal/transport"
 	"github.com/nexlink/networking-agent/internal/wireguard"
 )
@@ -85,6 +88,10 @@ type Executor struct {
 	OnApplied func(version int)
 	// Dial overrides the OS network for probes (lab mode: userspace tunnel).
 	Dial connectivity.DialFunc
+	// Log receives progress lines (shown in the device's agent console).
+	Log *slog.Logger
+	// FlushEvents uploads buffered log lines immediately (optional).
+	FlushEvents func(ctx context.Context)
 }
 
 func (e *Executor) Execute(ctx context.Context, cmd Command) Result {
@@ -130,6 +137,11 @@ func (e *Executor) Execute(ctx context.Context, cmd Command) Result {
 		res.Output["target"] = addr
 		res.Output["attempts"] = r.Attempts
 		res.Output["successes"] = r.Successes
+	case "transfer_test":
+		p := params.(policy.TransferParams)
+		if err := e.transferTest(ctx, p, &res); err != nil {
+			return fail(err)
+		}
 	case "report_peer_status":
 		if err := e.SendTelemetry(ctx); err != nil {
 			return fail(fmt.Errorf("send telemetry: %w", err))
@@ -151,6 +163,67 @@ func (e *Executor) Execute(ctx context.Context, cmd Command) Result {
 	res.Status = "succeeded"
 	res.FinishedAt = telemetry.Ts(time.Now())
 	return res
+}
+
+// transferTest sends p.Megabytes of random data to the peer's transfer sink,
+// through the tunnel, and records throughput plus the peer-confirmed checksum.
+func (e *Executor) transferTest(ctx context.Context, p policy.TransferParams, res *Result) error {
+	if e.Dial == nil {
+		return errors.New("transfer tests need the userspace tunnel (run --userspace)")
+	}
+	addr, ref, err := e.resolveTarget(ctx, policy.ConnectivityParams{Target: "peer", PeerDeviceID: p.PeerDeviceID, Count: 1})
+	if err != nil {
+		return err
+	}
+	host, _, _ := net.SplitHostPort(addr)
+	addr = net.JoinHostPort(host, strconv.Itoa(transfer.PortFor(e.ProbePort)))
+	n := int64(p.Megabytes) << 20
+	logf := func(msg string, args ...any) {
+		if e.Log != nil {
+			e.Log.Info(msg, args...)
+		}
+	}
+	flush := func() {
+		if e.FlushEvents != nil {
+			e.FlushEvents(ctx)
+		}
+	}
+
+	logf("transfer test starting", "peer", host, "bytes", n, "path", "wireguard tunnel")
+	flush()
+	conn, err := e.Dial(ctx, addr)
+	if err != nil {
+		return fmt.Errorf("peer transfer sink not reachable through the tunnel (peer agent too old or offline?): %w", err)
+	}
+	defer conn.Close()
+	next := n / 4
+	r, err := transfer.Send(ctx, conn, n, func(sent int64) {
+		if sent >= next && sent < n {
+			logf("transfer progress", "sent_mb", float64(sent)/(1<<20), "percent", sent*100/n)
+			next += n / 4
+		}
+	})
+	if err != nil {
+		logf("transfer test failed", "error", err.Error())
+		flush()
+		return err
+	}
+	mbps := r.BitsPerSecond() / 1e6
+	logf("transfer test finished", "mb", float64(r.Bytes)/(1<<20), "seconds", r.Duration.Seconds(), "mbit_s", mbps, "integrity", r.IntegrityMatch)
+	flush()
+
+	at := time.Now()
+	target := telemetry.Target{Kind: "peer", Ref: ref}
+	res.Measurements = append(res.Measurements, telemetry.Valid("throughput", "bps", "agent", target, r.BitsPerSecond(), 1, at))
+	res.Output["target"] = addr
+	res.Output["bytesSent"] = r.Bytes
+	res.Output["bytesConfirmed"] = r.PeerBytes
+	res.Output["durationMs"] = r.Duration.Milliseconds()
+	res.Output["mbitPerSecond"] = mbps
+	res.Output["sha256"] = hex.EncodeToString(r.SentSHA256[:])
+	res.Output["peerSha256"] = hex.EncodeToString(r.PeerSHA256[:])
+	res.Output["integrityMatch"] = r.IntegrityMatch
+	return nil
 }
 
 // ResolveControlPlane returns host:port of the control plane for TCP probes.

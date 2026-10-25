@@ -55,6 +55,9 @@ function topologyRouter({ config }) {
           vpnSource: h.vpn.source || null,
           lastHeartbeatAt: d.lastHeartbeatAt,
           lastHandshakeAt: h.lastHandshakeAt,
+          agentVersion: d.agentVersion || null,
+          // Can this agent take part in a data-flow test (agent ≥ 0.3.0, userspace)?
+          transfer: (d.capabilities || []).includes('transfer_test'),
         });
         if (d.enrollmentState === 'enrolled') {
           edges.push({

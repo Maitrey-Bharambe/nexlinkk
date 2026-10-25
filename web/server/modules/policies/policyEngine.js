@@ -59,6 +59,18 @@ async function evaluateAction({ actionType, params, deviceId, incident, user, ph
     deny(`PRECONDITION_CAPABILITY: agent does not advertise "${def.requiredCapability}"${def.requiredCapability === 'wireguard_apply' ? ' (privileged mode disabled)' : ''}`);
   }
 
+  if (def.peerCapability && p.peerDeviceId) {
+    const peerDevice = await Device.findById(p.peerDeviceId).lean();
+    if (!peerDevice) deny('INVALID_PEER: peer device not found');
+    else {
+      const peerAgent = agentStatus(peerDevice, now, thresholds(config));
+      if (peerAgent.status !== 'online') deny(`PRECONDITION_PEER_OFFLINE: ${peerDevice.name} agent is ${peerAgent.status}`);
+      if (!(peerDevice.capabilities || []).includes(def.peerCapability)) {
+        deny(`PRECONDITION_PEER_CAPABILITY: ${peerDevice.name} does not advertise "${def.peerCapability}" (agent ${peerDevice.agentVersion || 'unknown'}; needs 0.3.0+ in userspace mode)`);
+      }
+    }
+  }
+
   const recent = await AgentCommand.countDocuments({
     deviceId: device._id,
     type: def.agentCommand,

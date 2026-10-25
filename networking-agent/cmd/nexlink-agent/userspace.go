@@ -19,6 +19,7 @@ import (
 	"github.com/nexlink/networking-agent/internal/relay"
 	"github.com/nexlink/networking-agent/internal/session"
 	"github.com/nexlink/networking-agent/internal/telemetry"
+	"github.com/nexlink/networking-agent/internal/transfer"
 	"github.com/nexlink/networking-agent/internal/wireguard"
 )
 
@@ -78,6 +79,19 @@ func runUserspace(ctx context.Context, cfg *config.Config, id *identity.Identity
 			c.Close()
 		}
 	}()
+	// Transfer-test sink: counts and hashes bytes a peer sends through the tunnel.
+	tl, err := dev.Net.ListenTCPAddrPort(netip.AddrPortFrom(ip, uint16(transfer.PortFor(cfg.ProbePort))))
+	if err != nil {
+		return err
+	}
+	defer tl.Close()
+	go transfer.Serve(tl, func(r transfer.Received) {
+		mbps := 0.0
+		if r.Duration > 0 {
+			mbps = float64(r.Bytes*8) / r.Duration.Seconds() / 1e6
+		}
+		log.Info("transfer received through the tunnel", "from", r.From, "mb", float64(r.Bytes)/(1<<20), "seconds", r.Duration.Seconds(), "mbit_s", mbps)
+	})
 	dial := func(ctx context.Context, addr string) (net.Conn, error) {
 		ap, err := netip.ParseAddrPort(addr)
 		if err != nil {
@@ -105,7 +119,7 @@ func runUserspace(ctx context.Context, cfg *config.Config, id *identity.Identity
 	a.Executor().Dial = dial
 	a.Services = shared
 	a.ExtraCapabilities = func() []string {
-		caps := []string{"remote_session"}
+		caps := []string{"remote_session", "transfer_test"}
 		if rc != nil && rc.Connected() {
 			caps = append(caps, "relay")
 		}

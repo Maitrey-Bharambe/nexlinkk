@@ -27,6 +27,24 @@ const ACTIONS = {
       .refine((p) => p.target !== 'peer' || p.peerDeviceId, { message: 'peerDeviceId required for peer target' }),
     verification: 'Probe measurements tagged with this command exist and are valid',
   },
+  run_transfer_test: {
+    description: 'Agent sends a bounded amount of random data to a peer through the WireGuard tunnel; the peer confirms byte count and SHA-256',
+    risk: 'low',
+    available: true,
+    agentCommand: 'transfer_test',
+    requiredCapability: 'transfer_test',
+    // The receiving agent must run the transfer sink too.
+    peerCapability: 'transfer_test',
+    timeoutMs: 120_000,
+    perHourLimit: 10,
+    params: z
+      .object({
+        peerDeviceId: objectId,
+        megabytes: z.number().int().min(1).max(32).default(8),
+      })
+      .strict(),
+    verification: 'Agent result shows the peer confirmed every byte with a matching SHA-256, and a throughput measurement exists',
+  },
   request_peer_status_report: {
     description: 'Agent re-reads WireGuard peer state and sends a fresh telemetry report',
     risk: 'low',

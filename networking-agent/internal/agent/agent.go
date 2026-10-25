@@ -111,6 +111,9 @@ func New(cfg config.Config, id *identity.Identity, inspector wireguard.Inspector
 		Privileged:    cfg.Privileged,
 		Applier:       applier,
 		SendTelemetry: a.SendTelemetry,
+		Log:           log,
+		// Lets long commands (transfer tests) push their log to the console right away.
+		FlushEvents: a.flushEvents,
 		OnApplied: func(v int) {
 			a.mu.Lock()
 			a.appliedVer = &v

@@ -7,12 +7,14 @@ import { Share2 } from 'lucide-react';
 import { useApi, useNow } from '@/hooks/useApi';
 import { Empty, ErrorState, Loading, Numeral, PageHeader } from '@/components/ui';
 import TopologyGraph from '@/features/topology/TopologyGraph';
+import FlowLab from '@/features/topology/FlowLab';
 import { timeAgo } from '@/lib/format';
 
 // [state, look, meaning, sample line (svg stroke props)]
 const LEGEND = [
   ['connected · direct', 'lime, travelling pulse', 'fresh WireGuard handshake over direct UDP', { stroke: '#C7FF2E', strokeWidth: 2 }],
   ['connected · relay', 'lime, long dashes', 'fresh handshake; ciphertext through the NexLink relay', { stroke: '#C7FF2E', strokeWidth: 2, strokeDasharray: '10 6' }],
+  ['test traffic', 'thick lime, packet stream', 'a data-flow test is sending real bytes through this tunnel now', { stroke: '#C7FF2E', strokeWidth: 4 }],
   ['degraded', 'amber', 'handshake ok, loss or latency above threshold', { stroke: '#F2B94B', strokeWidth: 2 }],
   ['connecting', 'thin dashed lime', 'peer configured, no handshake yet', { stroke: '#C7FF2E', strokeOpacity: 0.6, strokeWidth: 1.25, strokeDasharray: '4 6' }],
   ['unreachable', 'dashed coral', 'handshake went stale', { stroke: '#FF5A36', strokeWidth: 1.5, strokeDasharray: '5 5' }],
@@ -79,6 +81,8 @@ function Topology() {
   const [showControl, setShowControl] = useState(true);
   const [showMembership, setShowMembership] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedLinkId, setSelectedLinkId] = useState(null);
+  const [flow, setFlow] = useState(null);
   const { data, error, loading, reload, fetchedAt } = useApi(`/topology${networkId ? `?networkId=${networkId}` : ''}`, {
     events: ['device:update', 'network:update'],
     pollMs: 15_000,
@@ -123,9 +127,19 @@ function Topology() {
       ) : (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="relative h-[min(680px,72vh)] min-h-[420px] overflow-hidden border border-line-strong bg-ink" role="img" aria-label={`Topology: ${devices.length} devices, ${connected.length} of ${peerEdges.length} tunnels verified`}>
-            <TopologyGraph key={networkId || 'all'} graph={data} showControl={showControl} showMembership={showMembership} selectedId={selectedId} onSelect={setSelectedId} />
+            <TopologyGraph
+              key={networkId || 'all'}
+              graph={data}
+              showControl={showControl}
+              showMembership={showMembership}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              selectedLinkId={selectedLinkId}
+              onSelectLink={setSelectedLinkId}
+              flow={flow}
+            />
             <div className="pointer-events-none absolute left-3 top-3 border border-line bg-ink/90 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/60">
-              click a device to inspect it
+              click a device to inspect it · click a link to test its data flow
             </div>
           </div>
           <div className="space-y-4">
@@ -169,6 +183,11 @@ function Topology() {
               </p>
             </section>
           </div>
+        </div>
+      )}
+      {peerEdges.length > 0 && (
+        <div className="mt-4">
+          <FlowLab links={peerEdges} nodes={data.nodes} selectedLinkId={selectedLinkId} onSelectLink={setSelectedLinkId} onActivity={setFlow} />
         </div>
       )}
     </div>

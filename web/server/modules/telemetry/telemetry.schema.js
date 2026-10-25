@@ -10,7 +10,7 @@ const { MEASUREMENT_TYPES, TARGET_KINDS } = require('../../database/models/telem
  */
 
 const SCHEMA_VERSION = 1;
-const CAPABILITIES = ['telemetry', 'connectivity_probe', 'wireguard_inspect', 'wireguard_apply', 'relay', 'remote_session'];
+const CAPABILITIES = ['telemetry', 'connectivity_probe', 'wireguard_inspect', 'wireguard_apply', 'relay', 'remote_session', 'transfer_test'];
 const SERVICE_NAMES = ['rdp', 'ssh', 'vnc', 'http', 'https', 'tcp'];
 const UNIT_FOR_TYPE = { rtt: 'ms', jitter: 'ms', packet_loss: 'percent', throughput: 'bps', handshake_age: 's' };
 const SOURCES = ['tcp_connect', 'icmp', 'udp_echo', 'wireguard', 'http', 'agent'];
