@@ -120,6 +120,10 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: app.zip
+          type: zip
+          # Wipe wwwroot first: Next.js keeps a runtime page cache (.next/server/route-cache)
+          # that would otherwise keep serving pages from the previous build.
+          clean: true
 
       - name: Smoke test
         run: |
